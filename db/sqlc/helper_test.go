@@ -106,7 +106,7 @@ func randomSeat(t *testing.T, flightID pgtype.UUID) Seat {
 		ID:       randomUUID(),
 		FlightID: flightID,
 		SeatNumber: seatNum,
-		SeatClass:  randomSeatClass(row),
+		SeatClass:  seatClass,
 		Price:      randomSeatPrice(seatClass),
 	}
 	seat, err := store.CreateSeat(context.Background(), arg)

@@ -11,6 +11,7 @@ import (
 )
 
 type Querier interface {
+	CreateBooking(ctx context.Context, arg CreateBookingParams) (Booking, error)
 	CreateFlight(ctx context.Context, arg CreateFlightParams) (Flight, error)
 	CreateSeat(ctx context.Context, arg CreateSeatParams) (Seat, error)
 	CreateSeatHold(ctx context.Context, arg CreateSeatHoldParams) (SeatHold, error)
