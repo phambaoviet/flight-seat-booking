@@ -11,6 +11,7 @@ import (
 )
 
 type Querier interface {
+	CountActiveHold(ctx context.Context, seatID pgtype.UUID) (int64, error)
 	CreateBooking(ctx context.Context, arg CreateBookingParams) (Booking, error)
 	CreateFlight(ctx context.Context, arg CreateFlightParams) (Flight, error)
 	CreateSeat(ctx context.Context, arg CreateSeatParams) (Seat, error)

@@ -2,10 +2,13 @@ package db
 
 import (
 	"context"
+	"errors"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/require"
 )
 
@@ -168,4 +171,57 @@ func TestCreateHoldTx_ExpiredHold(t *testing.T) {
 	require.NotEmpty(t, activeHold)
 	require.Equal(t, result.ID, activeHold.ID)
 	require.Equal(t, result.UserID, activeHold.UserID)
+}
+func TestCreateHoldTx_ConcurrentHold(t *testing.T) {
+	n := 10 // Number of concurrent goroutines to simulate
+	errs := make(chan error, n)
+	var wg sync.WaitGroup
+	store := NewStore(testDB)
+	
+	// Barrier: Release all goroutines at the same time
+	start := make(chan struct{})
+	flight := randomFlight(t)
+	seat := randomSeat(t, flight.ID)
+	seatID := seat.ID // Use the same seat ID for all goroutines
+	for i:=0; i < n; i++ {
+		wg.Add(1)
+		go func(userID pgtype.UUID) {
+			defer wg.Done()
+			<-start // Wait for the signal to start
+
+			
+			
+			holdArg := CreateSeatHoldParams{
+				ID:        randomUUID(),
+				UserID:    userID,
+				SeatID:    seatID,
+				HoldToken: randomUUID(),
+			}
+			_, err := store.CreateHoldTx(context.Background(), holdArg)
+			
+			errs <- err
+			
+		}(randomUser(t).ID)
+	}
+
+	close(start) // Signal all goroutines to start
+	wg.Wait()    // Wait for all goroutines to finish
+	close(errs)  // Close the error channel
+
+	var successCount, seatAlreadyOnHoldCount int
+	for err := range errs {
+		if err == nil {
+			successCount++
+		} else {
+			if errors.Is(err, ErrSeatAlreadyOnHold) {
+				seatAlreadyOnHoldCount++
+			}
+		}
+	}
+	
+	require.Equal(t, 1, successCount, "Exactly one goroutine should succeed in creating a hold")
+	require.Equal(t, n-1, seatAlreadyOnHoldCount, "The rest of the goroutines should receive ErrSeatAlreadyOnHold")
+	count, err := store.CountActiveHold(context.Background(), seatID)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), count)
 }

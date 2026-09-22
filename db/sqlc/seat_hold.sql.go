@@ -11,6 +11,20 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countActiveHold = `-- name: CountActiveHold :one
+SELECT COUNT(*)
+FROM seat_holds
+WHERE seat_id = $1
+AND expires_at > CURRENT_TIMESTAMP
+`
+
+func (q *Queries) CountActiveHold(ctx context.Context, seatID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countActiveHold, seatID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createSeatHold = `-- name: CreateSeatHold :one
 INSERT INTO seat_holds (id, user_id, seat_id, hold_token, expires_at)
 VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP + INTERVAL '10 minutes')
