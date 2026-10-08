@@ -17,6 +17,8 @@ type Querier interface {
 	CreateSeat(ctx context.Context, arg CreateSeatParams) (Seat, error)
 	CreateSeatHold(ctx context.Context, arg CreateSeatHoldParams) (SeatHold, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	DeleteSeatHold(ctx context.Context, id pgtype.UUID) error
+	GetActiveHoldByToken(ctx context.Context, arg GetActiveHoldByTokenParams) (SeatHold, error)
 	GetActiveSeatHold(ctx context.Context, seatID pgtype.UUID) (SeatHold, error)
 	GetConfirmedBooking(ctx context.Context, seatID pgtype.UUID) (Booking, error)
 	LockSeat(ctx context.Context, id pgtype.UUID) (Seat, error)

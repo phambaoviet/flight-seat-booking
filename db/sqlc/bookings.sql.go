@@ -56,3 +56,43 @@ func (q *Queries) CreateBooking(ctx context.Context, arg CreateBookingParams) (B
 	)
 	return i, err
 }
+
+const deleteSeatHold = `-- name: DeleteSeatHold :exec
+DELETE FROM seat_holds
+WHERE id = $1
+`
+
+func (q *Queries) DeleteSeatHold(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteSeatHold, id)
+	return err
+}
+
+const getActiveHoldByToken = `-- name: GetActiveHoldByToken :one
+SELECT id, user_id, seat_id, hold_token, created_at, expires_at
+FROM seat_holds
+WHERE seat_id = $1
+    AND user_id = $2
+    AND hold_token = $3
+    AND expires_at > CURRENT_TIMESTAMP
+LIMIT 1
+`
+
+type GetActiveHoldByTokenParams struct {
+	SeatID    pgtype.UUID `json:"seat_id"`
+	UserID    pgtype.UUID `json:"user_id"`
+	HoldToken pgtype.UUID `json:"hold_token"`
+}
+
+func (q *Queries) GetActiveHoldByToken(ctx context.Context, arg GetActiveHoldByTokenParams) (SeatHold, error) {
+	row := q.db.QueryRow(ctx, getActiveHoldByToken, arg.SeatID, arg.UserID, arg.HoldToken)
+	var i SeatHold
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.SeatID,
+		&i.HoldToken,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+	)
+	return i, err
+}

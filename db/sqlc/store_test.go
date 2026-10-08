@@ -225,3 +225,72 @@ func TestCreateHoldTx_ConcurrentHold(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(1), count)
 }
+func TestConfirmBookingTx(t *testing.T){
+	store := NewStore(testDB)
+	// create user
+	user := randomUser(t)
+
+	// create flight
+	flight := randomFlight(t)
+
+	// create seat
+	seat := randomSeat(t, flight.ID)
+	holdArg := CreateSeatHoldParams{
+		ID:        randomUUID(),
+		UserID:    user.ID,
+		SeatID:    seat.ID,
+		HoldToken: randomUUID(),
+	}
+	
+	result, err := store.CreateHoldTx(context.Background(), holdArg)
+	require.NoError(t, err)
+	require.NotEmpty(t, result)
+
+	confirmArg := ConfirmBookingTxParams{
+		BookingID: randomUUID(),
+		UserID:    user.ID,
+		SeatID:    seat.ID,
+		HoldToken: holdArg.HoldToken,
+		BookingCode: randomString(10),
+	}
+
+	booking, err := store.ConfirmBookingTx(context.Background(), confirmArg)
+	require.NoError(t, err)
+	require.NotEmpty(t, booking)
+
+	holdAfter, err := store.GetActiveHoldByToken(context.Background(), GetActiveHoldByTokenParams{
+		SeatID:    seat.ID,
+		UserID:    user.ID,
+		HoldToken: holdArg.HoldToken,
+	})
+	require.Error(t, err)
+	require.Empty(t, holdAfter)
+	require.ErrorIs(t, err, pgx.ErrNoRows)
+
+	require.Equal(t, confirmArg.BookingID, booking.ID)
+	require.Equal(t, confirmArg.UserID, booking.UserID)
+	require.Equal(t, confirmArg.SeatID, booking.SeatID)
+	require.Equal(t, confirmArg.BookingCode, booking.BookingCode)
+	require.Equal(t, "CONFIRMED", booking.Status)	
+}
+func TestConfirmBookingTx_HoldNotFound(t *testing.T) {
+	store := NewStore(testDB)
+	// create user, flight, and seat
+	user := randomUser(t)
+	flight := randomFlight(t)
+	seat := randomSeat(t, flight.ID)
+
+	// Call ConfirmBookingTx with a non-existent hold token
+	confirmArg := ConfirmBookingTxParams{
+		BookingID: randomUUID(),
+		UserID:    user.ID,
+		SeatID:    seat.ID,
+		HoldToken: randomUUID(), // Non-existent hold token
+		BookingCode: randomString(10),
+	}
+
+	result, err := store.ConfirmBookingTx(context.Background(), confirmArg)
+	require.Error(t, err)
+	require.Empty(t, result)
+	require.ErrorIs(t, err, ErrHoldNotFound)
+}
