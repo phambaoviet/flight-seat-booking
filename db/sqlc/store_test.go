@@ -413,7 +413,7 @@ func TestConfirmBookingTx_Rollback(t *testing.T){
 	})
 	require.NoError(t, err)
 
-	// Create a first confirmBooking with success
+	// Try to confirm the booking with a duplicate booking code
 	confirmArg := ConfirmBookingTxParams{
 		SeatID:      seat.ID,
 		UserID:      user.ID,
