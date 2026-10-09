@@ -1,8 +1,10 @@
-package db
+package store
 
 import (
 	"context"
 	"errors"
+	sqlcdb "flight-booking/db/sqlc"
+
 	"sync"
 	"testing"
 	"time"
@@ -12,21 +14,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCreateHoldTx (t *testing.T) {
-	store := NewStore(testDB)
+func TestCreateHoldTx(t *testing.T) {
+	testStore := NewStore(testDB)
 
 	user := randomUser(t)
 	flight := randomFlight(t)
 	seat := randomSeat(t, flight.ID)
 
-	arg := CreateSeatHoldParams{
+	arg := sqlcdb.CreateSeatHoldParams{
 		ID:        randomUUID(),
 		UserID:    user.ID,
 		SeatID:    seat.ID,
 		HoldToken: randomUUID(),
 	}
 
-	result, err := store.CreateHoldTx(context.Background(), arg)
+	result, err := testStore.CreateHoldTx(context.Background(), arg)
 	require.NoError(t, err)
 	require.NotEmpty(t, result)
 
@@ -36,11 +38,11 @@ func TestCreateHoldTx (t *testing.T) {
 	require.Equal(t, arg.HoldToken, result.HoldToken)
 }
 func TestCreateHoldTx_SeatNotFound(t *testing.T) {
-	store := NewStore(testDB)
+	testStore := NewStore(testDB)
 
 	user := randomUser(t)
 
-	arg := CreateSeatHoldParams{
+	arg := sqlcdb.CreateSeatHoldParams{
 		ID:        randomUUID(),
 		UserID:    user.ID,
 		SeatID:    randomUUID(), // Non-existent seat ID
@@ -48,50 +50,50 @@ func TestCreateHoldTx_SeatNotFound(t *testing.T) {
 	}
 
 	// Use a non-existent seat ID
-	result, err := store.CreateHoldTx(context.Background(), arg)
+	result, err := testStore.CreateHoldTx(context.Background(), arg)
 	require.Error(t, err)
 	require.Empty(t, result)
 	require.ErrorIs(t, err, ErrSeatNotFound)
 }
 func TestCreateHoldTx_SeatAlreadyBooked(t *testing.T) {
-	store := NewStore(testDB)
+	testStore := NewStore(testDB)
 
 	user := randomUser(t)
 	flight := randomFlight(t)
 	seat := randomSeat(t, flight.ID)
 
 	// Create a confirmed booking for the seat
-	bookingArg := CreateBookingParams{
-		ID:        randomUUID(),
-		UserID:    user.ID,
-		SeatID:    seat.ID,
+	bookingArg := sqlcdb.CreateBookingParams{
+		ID:          randomUUID(),
+		UserID:      user.ID,
+		SeatID:      seat.ID,
 		BookingCode: randomString(10),
-		Status:    "CONFIRMED",
+		Status:      "CONFIRMED",
 	}
-	booking, err := store.CreateBooking(context.Background(), bookingArg)
+	booking, err := testStore.CreateBooking(context.Background(), bookingArg)
 	require.NoError(t, err)
 	require.NotEmpty(t, booking)
 
 	// Attempt to create a hold for the already booked seat
-	holdArg := CreateSeatHoldParams{
+	holdArg := sqlcdb.CreateSeatHoldParams{
 		ID:        randomUUID(),
 		UserID:    user.ID,
 		SeatID:    seat.ID,
 		HoldToken: randomUUID(),
 	}
-	result, err := store.CreateHoldTx(context.Background(), holdArg)
+	result, err := testStore.CreateHoldTx(context.Background(), holdArg)
 	require.Error(t, err)
 	require.Empty(t, result)
 	require.ErrorIs(t, err, ErrSeatAlreadyBooked)
 
 	// Verify that no active seat hold was created
-	_, err = store.GetActiveSeatHold(context.Background(), seat.ID)
+	_, err = testStore.GetActiveSeatHold(context.Background(), seat.ID)
 	require.ErrorIs(t, err, pgx.ErrNoRows)
 
 }
 
 func TestCreateHoldTx_SeatAlreadyOnHold(t *testing.T) {
-	store := NewStore(testDB)
+	testStore := NewStore(testDB)
 
 	user1 := randomUser(t)
 	user2 := randomUser(t)
@@ -99,74 +101,73 @@ func TestCreateHoldTx_SeatAlreadyOnHold(t *testing.T) {
 	seat := randomSeat(t, flight.ID)
 
 	// Create an active seat hold for the seat by user1
-	holdArg1 := CreateSeatHoldParams{
+	holdArg1 := sqlcdb.CreateSeatHoldParams{
 		ID:        randomUUID(),
 		UserID:    user1.ID,
 		SeatID:    seat.ID,
 		HoldToken: randomUUID(),
 	}
-	hold1, err := store.CreateHoldTx(context.Background(), holdArg1)
+	hold1, err := testStore.CreateHoldTx(context.Background(), holdArg1)
 	require.NoError(t, err)
 	require.NotEmpty(t, hold1)
 
 	// Attempt to create a hold for the same seat by user2
-	holdArg2 := CreateSeatHoldParams{
+	holdArg2 := sqlcdb.CreateSeatHoldParams{
 		ID:        randomUUID(),
 		UserID:    user2.ID,
 		SeatID:    seat.ID,
 		HoldToken: randomUUID(),
 	}
-	result, err := store.CreateHoldTx(context.Background(), holdArg2)
+	result, err := testStore.CreateHoldTx(context.Background(), holdArg2)
 	require.Error(t, err)
 	require.Empty(t, result)
 	require.ErrorIs(t, err, ErrSeatAlreadyOnHold)
 
 	// Verify that the active seat hold is still held by user1
-	activeHold, err := store.GetActiveSeatHold(context.Background(), seat.ID)
+	activeHold, err := testStore.GetActiveSeatHold(context.Background(), seat.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, activeHold)
 	require.Equal(t, hold1.ID, activeHold.ID)
 	require.Equal(t, hold1.UserID, activeHold.UserID)
 }
 func TestCreateHoldTx_ExpiredHold(t *testing.T) {
-	store := NewStore(testDB)
-	
+	testStore := NewStore(testDB)
+
 	user1 := randomUser(t)
 	user2 := randomUser(t)
 	flight := randomFlight(t)
 	seat := randomSeat(t, flight.ID)
 
 	// Create an expired seat hold for the seat by user1
-	holdArg1 := CreateSeatHoldParams{
+	holdArg1 := sqlcdb.CreateSeatHoldParams{
 		ID:        randomUUID(),
 		UserID:    user1.ID,
 		SeatID:    seat.ID,
 		HoldToken: randomUUID(),
 	}
-	hold1, err := store.CreateHoldTx(context.Background(), holdArg1)
+	hold1, err := testStore.CreateHoldTx(context.Background(), holdArg1)
 	require.NoError(t, err)
 	require.NotEmpty(t, hold1)
 
 	// Manually expire the hold by updating the expires_at field
-	createdTime := time.Now().Add(-20 * time.Minute) 
-	expiredTime := time.Now().Add(-10 * time.Minute) 
-	_, err = store.db.Exec(context.Background(), "UPDATE seat_holds SET created_at = $1, expires_at = $2 WHERE id = $3", createdTime , expiredTime , hold1.ID)
+	createdTime := time.Now().Add(-20 * time.Minute)
+	expiredTime := time.Now().Add(-10 * time.Minute)
+	_, err = testStore.db.Exec(context.Background(), "UPDATE seat_holds SET created_at = $1, expires_at = $2 WHERE id = $3", createdTime, expiredTime, hold1.ID)
 	require.NoError(t, err)
-	
 
 	// Attempt to create a hold for the same seat by user2
-	holdArg2 := CreateSeatHoldParams{
+	holdArg2 := sqlcdb.CreateSeatHoldParams{
 		ID:        randomUUID(),
 		UserID:    user2.ID,
 		SeatID:    seat.ID,
 		HoldToken: randomUUID(),
 	}
-	result, err := store.CreateHoldTx(context.Background(), holdArg2)
+	result, err := testStore.CreateHoldTx(context.Background(), holdArg2)
 	require.NoError(t, err)
 	require.NotEmpty(t, result)
 
 	// Verify that the active seat hold is now held by user2
-	activeHold, err := store.GetActiveSeatHold(context.Background(), seat.ID)
+	activeHold, err := testStore.GetActiveSeatHold(context.Background(), seat.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, activeHold)
 	require.Equal(t, result.ID, activeHold.ID)
@@ -176,31 +177,29 @@ func TestCreateHoldTx_ConcurrentHold(t *testing.T) {
 	n := 10 // Number of concurrent goroutines to simulate
 	errs := make(chan error, n)
 	var wg sync.WaitGroup
-	store := NewStore(testDB)
-	
+	testStore := NewStore(testDB)
+
 	// Barrier: Release all goroutines at the same time
 	start := make(chan struct{})
 	flight := randomFlight(t)
 	seat := randomSeat(t, flight.ID)
 	seatID := seat.ID // Use the same seat ID for all goroutines
-	for i:=0; i < n; i++ {
+	for i := 0; i < n; i++ {
 		wg.Add(1)
 		go func(userID pgtype.UUID) {
 			defer wg.Done()
 			<-start // Wait for the signal to start
 
-			
-			
-			holdArg := CreateSeatHoldParams{
+			holdArg := sqlcdb.CreateSeatHoldParams{
 				ID:        randomUUID(),
 				UserID:    userID,
 				SeatID:    seatID,
 				HoldToken: randomUUID(),
 			}
-			_, err := store.CreateHoldTx(context.Background(), holdArg)
-			
+			_, err := testStore.CreateHoldTx(context.Background(), holdArg)
+
 			errs <- err
-			
+
 		}(randomUser(t).ID)
 	}
 
@@ -218,15 +217,15 @@ func TestCreateHoldTx_ConcurrentHold(t *testing.T) {
 			}
 		}
 	}
-	
+
 	require.Equal(t, 1, successCount, "Exactly one goroutine should succeed in creating a hold")
 	require.Equal(t, n-1, seatAlreadyOnHoldCount, "The rest of the goroutines should receive ErrSeatAlreadyOnHold")
-	count, err := store.CountActiveHold(context.Background(), seatID)
+	count, err := testStore.CountActiveHold(context.Background(), seatID)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), count)
 }
-func TestConfirmBookingTx(t *testing.T){
-	store := NewStore(testDB)
+func TestConfirmBookingTx(t *testing.T) {
+	testStore := NewStore(testDB)
 	// create user
 	user := randomUser(t)
 
@@ -235,30 +234,30 @@ func TestConfirmBookingTx(t *testing.T){
 
 	// create seat
 	seat := randomSeat(t, flight.ID)
-	holdArg := CreateSeatHoldParams{
+	holdArg := sqlcdb.CreateSeatHoldParams{
 		ID:        randomUUID(),
 		UserID:    user.ID,
 		SeatID:    seat.ID,
 		HoldToken: randomUUID(),
 	}
-	
-	result, err := store.CreateHoldTx(context.Background(), holdArg)
+
+	result, err := testStore.CreateHoldTx(context.Background(), holdArg)
 	require.NoError(t, err)
 	require.NotEmpty(t, result)
 
 	confirmArg := ConfirmBookingTxParams{
-		BookingID: randomUUID(),
-		UserID:    user.ID,
-		SeatID:    seat.ID,
-		HoldToken: holdArg.HoldToken,
+		BookingID:   randomUUID(),
+		UserID:      user.ID,
+		SeatID:      seat.ID,
+		HoldToken:   holdArg.HoldToken,
 		BookingCode: randomString(10),
 	}
 
-	booking, err := store.ConfirmBookingTx(context.Background(), confirmArg)
+	booking, err := testStore.ConfirmBookingTx(context.Background(), confirmArg)
 	require.NoError(t, err)
 	require.NotEmpty(t, booking)
 
-	holdAfter, err := store.GetActiveHoldByToken(context.Background(), GetActiveHoldByTokenParams{
+	holdAfter, err := testStore.GetActiveHoldByToken(context.Background(), sqlcdb.GetActiveHoldByTokenParams{
 		SeatID:    seat.ID,
 		UserID:    user.ID,
 		HoldToken: holdArg.HoldToken,
@@ -271,10 +270,10 @@ func TestConfirmBookingTx(t *testing.T){
 	require.Equal(t, confirmArg.UserID, booking.UserID)
 	require.Equal(t, confirmArg.SeatID, booking.SeatID)
 	require.Equal(t, confirmArg.BookingCode, booking.BookingCode)
-	require.Equal(t, "CONFIRMED", booking.Status)	
+	require.Equal(t, "CONFIRMED", booking.Status)
 }
 func TestConfirmBookingTx_HoldNotFound(t *testing.T) {
-	store := NewStore(testDB)
+	testStore := NewStore(testDB)
 	// create user, flight, and seat
 	user := randomUser(t)
 	flight := randomFlight(t)
@@ -282,20 +281,20 @@ func TestConfirmBookingTx_HoldNotFound(t *testing.T) {
 
 	// Call ConfirmBookingTx with a non-existent hold token
 	confirmArg := ConfirmBookingTxParams{
-		BookingID: randomUUID(),
-		UserID:    user.ID,
-		SeatID:    seat.ID,
-		HoldToken: randomUUID(), // Non-existent hold token
+		BookingID:   randomUUID(),
+		UserID:      user.ID,
+		SeatID:      seat.ID,
+		HoldToken:   randomUUID(), // Non-existent hold token
 		BookingCode: randomString(10),
 	}
 
-	result, err := store.ConfirmBookingTx(context.Background(), confirmArg)
+	result, err := testStore.ConfirmBookingTx(context.Background(), confirmArg)
 	require.Error(t, err)
 	require.Empty(t, result)
 	require.ErrorIs(t, err, ErrHoldNotFound)
 }
-func TestConfirmBookingTx_ExpiredHold(t *testing.T){
-	store := NewStore(testDB)
+func TestConfirmBookingTx_ExpiredHold(t *testing.T) {
+	testStore := NewStore(testDB)
 	// create user
 	user := randomUser(t)
 	// create flight
@@ -303,36 +302,36 @@ func TestConfirmBookingTx_ExpiredHold(t *testing.T){
 	// create seat
 	seat := randomSeat(t, flight.ID)
 	// create Hold
-	holdArg := CreateSeatHoldParams{
-		ID: randomUUID(),
-		UserID: user.ID,
-		SeatID: seat.ID,
+	holdArg := sqlcdb.CreateSeatHoldParams{
+		ID:        randomUUID(),
+		UserID:    user.ID,
+		SeatID:    seat.ID,
 		HoldToken: randomUUID(),
 	}
-	result, err := store.CreateSeatHold(context.Background(), holdArg)
+	result, err := testStore.CreateSeatHold(context.Background(), holdArg)
 	require.NoError(t, err)
 	require.NotEmpty(t, result)
 
 	// Set the hold expiration time to the past
-	createdTime := time.Now().Add(-20 * time.Minute) 
-	expiredTime := time.Now().Add(-10 * time.Minute) 
-	_, err = store.db.Exec(context.Background(), "UPDATE seat_holds SET created_at = $1, expires_at = $2 WHERE id = $3", createdTime , expiredTime , holdArg.ID)
+	createdTime := time.Now().Add(-20 * time.Minute)
+	expiredTime := time.Now().Add(-10 * time.Minute)
+	_, err = testStore.db.Exec(context.Background(), "UPDATE seat_holds SET created_at = $1, expires_at = $2 WHERE id = $3", createdTime, expiredTime, holdArg.ID)
 	require.NoError(t, err)
 
 	// Call ConfirmBooking
 	confirmArg := ConfirmBookingTxParams{
-		BookingID: randomUUID(),
-		UserID:    user.ID,
-		SeatID:    seat.ID,
-		HoldToken: holdArg.HoldToken,
+		BookingID:   randomUUID(),
+		UserID:      user.ID,
+		SeatID:      seat.ID,
+		HoldToken:   holdArg.HoldToken,
 		BookingCode: randomString(10),
 	}
-	booking, err := store.ConfirmBookingTx(context.Background(), confirmArg)
+	booking, err := testStore.ConfirmBookingTx(context.Background(), confirmArg)
 	require.ErrorIs(t, err, ErrHoldNotFound)
 	require.Empty(t, booking)
 }
-func TestConfirmBookingTx_AlreadyConfirmed(t *testing.T){
-	store := NewStore(testDB)
+func TestConfirmBookingTx_AlreadyConfirmed(t *testing.T) {
+	testStore := NewStore(testDB)
 	// create user
 	user := randomUser(t)
 
@@ -341,14 +340,14 @@ func TestConfirmBookingTx_AlreadyConfirmed(t *testing.T){
 
 	// create seat
 	seat := randomSeat(t, flight.ID)
-	holdArg := CreateSeatHoldParams{
+	holdArg := sqlcdb.CreateSeatHoldParams{
 		ID:        randomUUID(),
 		UserID:    user.ID,
 		SeatID:    seat.ID,
 		HoldToken: randomUUID(),
 	}
-	
-	result, err := store.CreateHoldTx(context.Background(), holdArg)
+
+	result, err := testStore.CreateHoldTx(context.Background(), holdArg)
 	require.NoError(t, err)
 	require.NotEmpty(t, result)
 
@@ -360,7 +359,7 @@ func TestConfirmBookingTx_AlreadyConfirmed(t *testing.T){
 		BookingID:   randomUUID(),
 		BookingCode: randomString(10),
 	}
-	booking1, err := store.ConfirmBookingTx(context.Background(), bookingArg1)
+	booking1, err := testStore.ConfirmBookingTx(context.Background(), bookingArg1)
 	require.NoError(t, err)
 	require.NotEmpty(t, booking1)
 
@@ -368,12 +367,12 @@ func TestConfirmBookingTx_AlreadyConfirmed(t *testing.T){
 	bookingArg2 := bookingArg1
 	bookingArg2.BookingID = randomUUID()
 	bookingArg2.BookingCode = randomString(10)
-	booking2, err := store.ConfirmBookingTx(context.Background(), bookingArg2)
+	booking2, err := testStore.ConfirmBookingTx(context.Background(), bookingArg2)
 	require.ErrorIs(t, err, ErrHoldNotFound)
 	require.Empty(t, booking2)
 }
-func TestConfirmBookingTx_Rollback(t *testing.T){
-	store := NewStore(testDB)
+func TestConfirmBookingTx_Rollback(t *testing.T) {
+	testStore := NewStore(testDB)
 	// create user
 	user := randomUser(t)
 
@@ -382,18 +381,18 @@ func TestConfirmBookingTx_Rollback(t *testing.T){
 
 	// create seat
 	seat := randomSeat(t, flight.ID)
-	holdArg := CreateSeatHoldParams{
+	holdArg := sqlcdb.CreateSeatHoldParams{
 		ID:        randomUUID(),
 		UserID:    user.ID,
 		SeatID:    seat.ID,
 		HoldToken: randomUUID(),
 	}
-	
-	result, err := store.CreateHoldTx(context.Background(), holdArg)
+
+	result, err := testStore.CreateHoldTx(context.Background(), holdArg)
 	require.NoError(t, err)
 	require.NotEmpty(t, result)
 
-	hold, err := store.GetActiveHoldByToken(context.Background(), GetActiveHoldByTokenParams{
+	hold, err := testStore.GetActiveHoldByToken(context.Background(), sqlcdb.GetActiveHoldByTokenParams{
 		SeatID:    seat.ID,
 		UserID:    user.ID,
 		HoldToken: holdArg.HoldToken,
@@ -404,7 +403,7 @@ func TestConfirmBookingTx_Rollback(t *testing.T){
 	otherSeat := randomSeat(t, flight.ID)
 
 	bookingCode := randomString(10)
-	_, err = store.CreateBooking(context.Background(), CreateBookingParams{
+	_, err = testStore.CreateBooking(context.Background(), sqlcdb.CreateBookingParams{
 		ID:          randomUUID(),
 		UserID:      user.ID,
 		SeatID:      otherSeat.ID,
@@ -421,16 +420,16 @@ func TestConfirmBookingTx_Rollback(t *testing.T){
 		BookingID:   randomUUID(),
 		BookingCode: bookingCode,
 	}
-	booking, err := store.ConfirmBookingTx(context.Background(), confirmArg)
+	booking, err := testStore.ConfirmBookingTx(context.Background(), confirmArg)
 	require.Error(t, err)
 	require.Empty(t, booking)
 
-	holdAfter, err := store.GetActiveHoldByToken(
+	holdAfter, err := testStore.GetActiveHoldByToken(
 		context.Background(),
-		GetActiveHoldByTokenParams{
+		sqlcdb.GetActiveHoldByTokenParams{
 			SeatID:    seat.ID,
-        	UserID:    user.ID,
-        	HoldToken: holdArg.HoldToken,
+			UserID:    user.ID,
+			HoldToken: holdArg.HoldToken,
 		},
 	)
 	require.NoError(t, err)

@@ -1,18 +1,18 @@
-package db
+package store
 
 import (
 	"context"
+	sqlcdb "flight-booking/db/sqlc"
 	"fmt"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"math/rand"
 	"testing"
 	"time"
-
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
-
 const alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
 var airlines = []string{"VN", "VJ", "9G"}
 var airports = []string{"SGN", "HAN", "DAD", "CXR", "PQC", "VCA", "DLI"}
 
@@ -34,7 +34,7 @@ func randomUUID() pgtype.UUID {
 	}
 }
 
-// Random Data 
+// Random Data
 func randomFlightNumber() string {
 	airline := airlines[rand.Intn(len(airlines))]
 	flightNum := rand.Intn(990) + 10
@@ -71,17 +71,18 @@ func randomSeatPrice(seatClass string) int64 {
 		return int64(4000000 + rand.Intn(2000000))
 	case "Business":
 		return int64(2000000 + rand.Intn(1500000))
-	default: 
+	default:
 		return int64(800000 + rand.Intn(700000))
 	}
 }
+
 // Random Flight
-func randomFlight(t *testing.T) Flight {
+func randomFlight(t *testing.T) sqlcdb.Flight {
 	dep, arr := randomAirport()
 	now := time.Now().Add(24 * time.Hour)
 	boardingAt := now.Add(-40 * time.Minute)
 	arrivalAt := now.Add(2 * time.Hour)
-	arg := CreateFlightParams{
+	arg := sqlcdb.CreateFlightParams{
 		ID:               randomUUID(),
 		FlightNumber:     randomFlightNumber(),
 		DepartureAirport: dep,
@@ -97,14 +98,15 @@ func randomFlight(t *testing.T) Flight {
 	}
 	return flight
 }
+
 // Random Seat
-func randomSeat(t *testing.T, flightID pgtype.UUID) Seat {
+func randomSeat(t *testing.T, flightID pgtype.UUID) sqlcdb.Seat {
 	store := NewStore(testDB)
 	seatNum, row := randomSeatNumber()
 	seatClass := randomSeatClass(row)
-	arg := CreateSeatParams{
-		ID:       randomUUID(),
-		FlightID: flightID,
+	arg := sqlcdb.CreateSeatParams{
+		ID:         randomUUID(),
+		FlightID:   flightID,
 		SeatNumber: seatNum,
 		SeatClass:  seatClass,
 		Price:      randomSeatPrice(seatClass),
@@ -115,19 +117,20 @@ func randomSeat(t *testing.T, flightID pgtype.UUID) Seat {
 	}
 	return seat
 }
-// Random User 
-func randomUser(t *testing.T) User {
+
+// Random User
+func randomUser(t *testing.T) sqlcdb.User {
 	store := NewStore(testDB)
-	
-	arg := CreateUserParams{
+
+	arg := sqlcdb.CreateUserParams{
 		ID:          randomUUID(),
 		Name:        randomString(10),
 		Email:       randomEmail(),
 		PhoneNumber: fmt.Sprintf("09%s", randomString(8)),
-	}	
+	}
 	user, err := store.CreateUser(context.Background(), arg)
 	if err != nil {
 		t.Fatalf("failed to create user: %v", err)
 	}
 	return user
-}	
+}
