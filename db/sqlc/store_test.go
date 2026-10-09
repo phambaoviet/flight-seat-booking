@@ -294,3 +294,146 @@ func TestConfirmBookingTx_HoldNotFound(t *testing.T) {
 	require.Empty(t, result)
 	require.ErrorIs(t, err, ErrHoldNotFound)
 }
+func TestConfirmBookingTx_ExpiredHold(t *testing.T){
+	store := NewStore(testDB)
+	// create user
+	user := randomUser(t)
+	// create flight
+	flight := randomFlight(t)
+	// create seat
+	seat := randomSeat(t, flight.ID)
+	// create Hold
+	holdArg := CreateSeatHoldParams{
+		ID: randomUUID(),
+		UserID: user.ID,
+		SeatID: seat.ID,
+		HoldToken: randomUUID(),
+	}
+	result, err := store.CreateSeatHold(context.Background(), holdArg)
+	require.NoError(t, err)
+	require.NotEmpty(t, result)
+
+	// Set the hold expiration time to the past
+	createdTime := time.Now().Add(-20 * time.Minute) 
+	expiredTime := time.Now().Add(-10 * time.Minute) 
+	_, err = store.db.Exec(context.Background(), "UPDATE seat_holds SET created_at = $1, expires_at = $2 WHERE id = $3", createdTime , expiredTime , holdArg.ID)
+	require.NoError(t, err)
+
+	// Call ConfirmBooking
+	confirmArg := ConfirmBookingTxParams{
+		BookingID: randomUUID(),
+		UserID:    user.ID,
+		SeatID:    seat.ID,
+		HoldToken: holdArg.HoldToken,
+		BookingCode: randomString(10),
+	}
+	booking, err := store.ConfirmBookingTx(context.Background(), confirmArg)
+	require.ErrorIs(t, err, ErrHoldNotFound)
+	require.Empty(t, booking)
+}
+func TestConfirmBookingTx_AlreadyConfirmed(t *testing.T){
+	store := NewStore(testDB)
+	// create user
+	user := randomUser(t)
+
+	// create flight
+	flight := randomFlight(t)
+
+	// create seat
+	seat := randomSeat(t, flight.ID)
+	holdArg := CreateSeatHoldParams{
+		ID:        randomUUID(),
+		UserID:    user.ID,
+		SeatID:    seat.ID,
+		HoldToken: randomUUID(),
+	}
+	
+	result, err := store.CreateHoldTx(context.Background(), holdArg)
+	require.NoError(t, err)
+	require.NotEmpty(t, result)
+
+	// Create a first confirmBooking with success
+	bookingArg1 := ConfirmBookingTxParams{
+		SeatID:      seat.ID,
+		UserID:      user.ID,
+		HoldToken:   holdArg.HoldToken,
+		BookingID:   randomUUID(),
+		BookingCode: randomString(10),
+	}
+	booking1, err := store.ConfirmBookingTx(context.Background(), bookingArg1)
+	require.NoError(t, err)
+	require.NotEmpty(t, booking1)
+
+	// Prepare a second confirmation request using the same hold
+	bookingArg2 := bookingArg1
+	bookingArg2.BookingID = randomUUID()
+	bookingArg2.BookingCode = randomString(10)
+	booking2, err := store.ConfirmBookingTx(context.Background(), bookingArg2)
+	require.ErrorIs(t, err, ErrHoldNotFound)
+	require.Empty(t, booking2)
+}
+func TestConfirmBookingTx_Rollback(t *testing.T){
+	store := NewStore(testDB)
+	// create user
+	user := randomUser(t)
+
+	// create flight
+	flight := randomFlight(t)
+
+	// create seat
+	seat := randomSeat(t, flight.ID)
+	holdArg := CreateSeatHoldParams{
+		ID:        randomUUID(),
+		UserID:    user.ID,
+		SeatID:    seat.ID,
+		HoldToken: randomUUID(),
+	}
+	
+	result, err := store.CreateHoldTx(context.Background(), holdArg)
+	require.NoError(t, err)
+	require.NotEmpty(t, result)
+
+	hold, err := store.GetActiveHoldByToken(context.Background(), GetActiveHoldByTokenParams{
+		SeatID:    seat.ID,
+		UserID:    user.ID,
+		HoldToken: holdArg.HoldToken,
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, hold)
+
+	otherSeat := randomSeat(t, flight.ID)
+
+	bookingCode := randomString(10)
+	_, err = store.CreateBooking(context.Background(), CreateBookingParams{
+		ID:          randomUUID(),
+		UserID:      user.ID,
+		SeatID:      otherSeat.ID,
+		BookingCode: bookingCode,
+		Status:      "CONFIRMED",
+	})
+	require.NoError(t, err)
+
+	// Create a first confirmBooking with success
+	confirmArg := ConfirmBookingTxParams{
+		SeatID:      seat.ID,
+		UserID:      user.ID,
+		HoldToken:   holdArg.HoldToken,
+		BookingID:   randomUUID(),
+		BookingCode: bookingCode,
+	}
+	booking, err := store.ConfirmBookingTx(context.Background(), confirmArg)
+	require.Error(t, err)
+	require.Empty(t, booking)
+
+	holdAfter, err := store.GetActiveHoldByToken(
+		context.Background(),
+		GetActiveHoldByTokenParams{
+			SeatID:    seat.ID,
+        	UserID:    user.ID,
+        	HoldToken: holdArg.HoldToken,
+		},
+	)
+	require.NoError(t, err)
+	require.NotEmpty(t, holdAfter)
+
+}
