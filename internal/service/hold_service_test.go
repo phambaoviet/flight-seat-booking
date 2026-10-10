@@ -39,45 +39,47 @@ func TestCreateHold_Success(t *testing.T) {
 		ExpiresAt: pgtype.Timestamptz{Time: now.Add(10 * time.Minute), Valid: true}, // 10 minutes later	
 	}
 	
-	arg := sqlcdb.CreateSeatHoldParams{
-		ID: 	   expectedHold.ID,
+	req := CreateHoldRequest{
 		UserID:    expectedHold.UserID,
 		SeatID:    expectedHold.SeatID,
-		HoldToken: expectedHold.HoldToken,
 	}
 	// create a mock store that returns the expected hold
 	mockStore := &mockHoldStore{
 		CreateHoldTxFunc: func(ctx context.Context, gotArg sqlcdb.CreateSeatHoldParams) (sqlcdb.SeatHold, error) {
-			assert.Equal(t, arg, gotArg)
+			assert.Equal(t, req.UserID, gotArg.UserID)
+        	assert.Equal(t, req.SeatID, gotArg.SeatID)
+			assert.True(t, gotArg.ID.Valid)
+        	assert.True(t, gotArg.HoldToken.Valid)
 			return expectedHold, nil
 		},
 	}
 	service := NewHoldService(mockStore)
 	// call CreateHold and expect a successful result
-	hold, err := service.CreateHold(context.Background(), arg)
+	hold, err := service.CreateHold(context.Background(), req)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedHold, hold)
 	
 }
 func TestCreateHoldError(t *testing.T) {
 	expectedErr := errors.New("database error")
-	arg := sqlcdb.CreateSeatHoldParams{
-		ID:        randomUUID(),
+	req := CreateHoldRequest{
 		UserID:    randomUUID(),
 		SeatID:    randomUUID(),
-		HoldToken: randomUUID(),
 	}
 	// create a mock store that returns an error
 	mockStore := &mockHoldStore{
 		CreateHoldTxFunc: func(ctx context.Context, gotArg sqlcdb.CreateSeatHoldParams) (sqlcdb.SeatHold, error) {
-			assert.Equal(t, arg, gotArg)
+			assert.Equal(t, req.UserID, gotArg.UserID)
+			assert.Equal(t, req.SeatID, gotArg.SeatID)
+			assert.True(t, gotArg.ID.Valid)
+			assert.True(t, gotArg.HoldToken.Valid)
 			return sqlcdb.SeatHold{}, expectedErr
 		},
 	}
 	// create a hold service with the mock store
 	service := NewHoldService(mockStore)
 	// call CreateHold and expect an error
-	hold, err := service.CreateHold(context.Background(), arg)
+	hold, err := service.CreateHold(context.Background(), req)
 	assert.Error(t, err)
 	assert.Equal(t, expectedErr, err)
 	assert.Equal(t, sqlcdb.SeatHold{}, hold)
