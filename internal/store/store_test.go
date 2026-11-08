@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	sqlcdb "flight-booking/db/sqlc"
+	"flight-booking/internal/domain"
 
 	"sync"
 	"testing"
@@ -53,7 +54,7 @@ func TestCreateHoldTx_SeatNotFound(t *testing.T) {
 	result, err := testStore.CreateHoldTx(context.Background(), arg)
 	require.Error(t, err)
 	require.Empty(t, result)
-	require.ErrorIs(t, err, ErrSeatNotFound)
+	require.ErrorIs(t, err, domain.ErrSeatNotFound)
 }
 func TestCreateHoldTx_SeatAlreadyBooked(t *testing.T) {
 	testStore := NewStore(testDB)
@@ -84,7 +85,7 @@ func TestCreateHoldTx_SeatAlreadyBooked(t *testing.T) {
 	result, err := testStore.CreateHoldTx(context.Background(), holdArg)
 	require.Error(t, err)
 	require.Empty(t, result)
-	require.ErrorIs(t, err, ErrSeatAlreadyBooked)
+	require.ErrorIs(t, err, domain.ErrSeatAlreadyBooked)
 
 	// Verify that no active seat hold was created
 	_, err = testStore.GetActiveSeatHold(context.Background(), seat.ID)
@@ -121,7 +122,7 @@ func TestCreateHoldTx_SeatAlreadyOnHold(t *testing.T) {
 	result, err := testStore.CreateHoldTx(context.Background(), holdArg2)
 	require.Error(t, err)
 	require.Empty(t, result)
-	require.ErrorIs(t, err, ErrSeatAlreadyOnHold)
+	require.ErrorIs(t, err, domain.ErrSeatAlreadyOnHold)
 
 	// Verify that the active seat hold is still held by user1
 	activeHold, err := testStore.GetActiveSeatHold(context.Background(), seat.ID)
@@ -212,7 +213,7 @@ func TestCreateHoldTx_ConcurrentHold(t *testing.T) {
 		if err == nil {
 			successCount++
 		} else {
-			if errors.Is(err, ErrSeatAlreadyOnHold) {
+			if errors.Is(err, domain.ErrSeatAlreadyOnHold) {
 				seatAlreadyOnHoldCount++
 			}
 		}
@@ -291,7 +292,7 @@ func TestConfirmBookingTx_HoldNotFound(t *testing.T) {
 	result, err := testStore.ConfirmBookingTx(context.Background(), confirmArg)
 	require.Error(t, err)
 	require.Empty(t, result)
-	require.ErrorIs(t, err, ErrHoldNotFound)
+	require.ErrorIs(t, err, domain.ErrHoldNotFound)
 }
 func TestConfirmBookingTx_ExpiredHold(t *testing.T) {
 	testStore := NewStore(testDB)
@@ -327,7 +328,7 @@ func TestConfirmBookingTx_ExpiredHold(t *testing.T) {
 		BookingCode: randomString(10),
 	}
 	booking, err := testStore.ConfirmBookingTx(context.Background(), confirmArg)
-	require.ErrorIs(t, err, ErrHoldNotFound)
+	require.ErrorIs(t, err, domain.ErrHoldNotFound)
 	require.Empty(t, booking)
 }
 func TestConfirmBookingTx_AlreadyConfirmed(t *testing.T) {
@@ -368,7 +369,7 @@ func TestConfirmBookingTx_AlreadyConfirmed(t *testing.T) {
 	bookingArg2.BookingID = randomUUID()
 	bookingArg2.BookingCode = randomString(10)
 	booking2, err := testStore.ConfirmBookingTx(context.Background(), bookingArg2)
-	require.ErrorIs(t, err, ErrHoldNotFound)
+	require.ErrorIs(t, err, domain.ErrHoldNotFound)
 	require.Empty(t, booking2)
 }
 func TestConfirmBookingTx_Rollback(t *testing.T) {

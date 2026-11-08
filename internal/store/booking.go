@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	sqlcdb "flight-booking/db/sqlc"
+	"flight-booking/internal/domain"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -25,7 +26,7 @@ func (s *Store) ConfirmBookingTx(ctx context.Context, arg ConfirmBookingTxParams
 		_, err = q.LockSeat(ctx, arg.SeatID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return ErrSeatNotFound
+				return domain.ErrSeatNotFound
 			}
 			return err
 		}
@@ -37,7 +38,7 @@ func (s *Store) ConfirmBookingTx(ctx context.Context, arg ConfirmBookingTxParams
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return ErrHoldNotFound
+				return domain.ErrHoldNotFound
 			}
 			return err
 		}

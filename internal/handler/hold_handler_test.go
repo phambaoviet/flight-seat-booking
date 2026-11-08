@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	sqlcdb "flight-booking/db/sqlc"
+	"flight-booking/internal/domain"
 	"flight-booking/internal/service"
 	"net/http"
 	"net/http/httptest"
@@ -196,4 +197,84 @@ func TestCreateHold_Success(t *testing.T) {
 	// Check the response status code
 	assert.Equal(t, http.StatusCreated, rr.Code)
 	assert.True(t, serviceCalled)
+}
+func TestCreateHold_SeatNotFound(t *testing.T) {
+	mockService := &mockHoldService{
+		CreateHoldFunc: func(ctx context.Context, req service.CreateHoldRequest) (sqlcdb.SeatHold, error) {
+			return sqlcdb.SeatHold{}, domain.ErrSeatNotFound
+		},
+	}
+
+	handler := NewHoldHandler(mockService)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/holds", strings.NewReader(`{
+		"seat_id": "550e8400-e29b-41d4-a716-446655440000",
+		"user_id": "123e4567-e89b-12d3-a456-426614174000"
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	handler.CreateHold(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+}
+func TestCreateHold_SeatAlreadyBooked(t *testing.T) {
+	mockService := &mockHoldService{
+		CreateHoldFunc: func(ctx context.Context, req service.CreateHoldRequest) (sqlcdb.SeatHold, error) {
+			return sqlcdb.SeatHold{}, domain.ErrSeatAlreadyBooked
+		},
+	}
+
+	handler := NewHoldHandler(mockService)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/holds", strings.NewReader(`{
+		"seat_id": "550e8400-e29b-41d4-a716-446655440000",
+		"user_id": "123e4567-e89b-12d3-a456-426614174000"
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	handler.CreateHold(rr, req)
+
+	assert.Equal(t, http.StatusConflict, rr.Code)
+}
+func TestCreateHold_SeatAlreadyOnHold(t *testing.T) {
+	mockService := &mockHoldService{
+		CreateHoldFunc: func(ctx context.Context, req service.CreateHoldRequest) (sqlcdb.SeatHold, error) {
+			return sqlcdb.SeatHold{}, domain.ErrSeatAlreadyOnHold
+		},
+	}
+
+	handler := NewHoldHandler(mockService)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/holds", strings.NewReader(`{
+		"seat_id": "550e8400-e29b-41d4-a716-446655440000",
+		"user_id": "123e4567-e89b-12d3-a456-426614174000"
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	handler.CreateHold(rr, req)
+
+	assert.Equal(t, http.StatusConflict, rr.Code)
+}
+func TestCreateHold_InternalServerError(t *testing.T) {
+	mockService := &mockHoldService{
+		CreateHoldFunc: func(ctx context.Context, req service.CreateHoldRequest) (sqlcdb.SeatHold, error) {
+			return sqlcdb.SeatHold{}, assert.AnError
+		},
+	}
+
+	handler := NewHoldHandler(mockService)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/holds", strings.NewReader(`{
+		"seat_id": "550e8400-e29b-41d4-a716-446655440000",
+		"user_id": "123e4567-e89b-12d3-a456-426614174000"
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	handler.CreateHold(rr, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 }

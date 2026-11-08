@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	sqlcdb "flight-booking/db/sqlc"
+	"flight-booking/internal/domain"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -15,13 +16,13 @@ func (s *Store) CreateHoldTx(ctx context.Context, arg sqlcdb.CreateSeatHoldParam
 		_, err = q.LockSeat(ctx, arg.SeatID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return ErrSeatNotFound
+				return domain.ErrSeatNotFound
 			}
 			return err
 		}
 		_, err = q.GetConfirmedBooking(ctx, arg.SeatID)
 		if err == nil {
-			return ErrSeatAlreadyBooked
+			return domain.ErrSeatAlreadyBooked
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return err
@@ -29,7 +30,7 @@ func (s *Store) CreateHoldTx(ctx context.Context, arg sqlcdb.CreateSeatHoldParam
 
 		_, err = q.GetActiveSeatHold(ctx, arg.SeatID)
 		if err == nil {
-			return ErrSeatAlreadyOnHold
+			return domain.ErrSeatAlreadyOnHold
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return err

@@ -3,7 +3,9 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	sqlcdb "flight-booking/db/sqlc"
+	"flight-booking/internal/domain"
 	"flight-booking/internal/service"
 	"net/http"
 
@@ -13,10 +15,10 @@ import (
 )
 
 type HoldService interface {
-    CreateHold(
-        ctx context.Context,
-        req service.CreateHoldRequest,
-    ) (sqlcdb.SeatHold, error)
+	CreateHold(
+		ctx context.Context,
+		req service.CreateHoldRequest,
+	) (sqlcdb.SeatHold, error)
 }
 
 type HoldHandler struct {
@@ -24,18 +26,20 @@ type HoldHandler struct {
 		CreateHold(ctx context.Context, req service.CreateHoldRequest) (sqlcdb.SeatHold, error)
 	}
 }
+
 func NewHoldHandler(svc HoldService) *HoldHandler {
 	return &HoldHandler{
 		HoldService: svc,
 	}
 }
+
 type createHoldHTTPRequest struct {
-    SeatID string `json:"seat_id"`
+	SeatID string `json:"seat_id"`
 	UserID string `json:"user_id"`
 }
 
 func (h *HoldHandler) CreateHold(w http.ResponseWriter, r *http.Request) {
-	var req createHoldHTTPRequest 
+	var req createHoldHTTPRequest
 
 	err := json.NewDecoder(r.Body).Decode(&req)
 
@@ -48,7 +52,7 @@ func (h *HoldHandler) CreateHold(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "Invalid seat_id", http.StatusBadRequest)
 		return
-	}	
+	}
 	pgSeatID := pgtype.UUID{
 		Bytes: seatID,
 		Valid: true,
@@ -71,7 +75,16 @@ func (h *HoldHandler) CreateHold(w http.ResponseWriter, r *http.Request) {
 		SeatID: pgSeatID,
 	}
 	hold, err := h.HoldService.CreateHold(r.Context(), createHoldReq)
-	if err != nil {
+	if errors.Is(err, domain.ErrSeatNotFound) {
+		http.Error(w, "Seat not found", http.StatusNotFound)
+		return
+	} else if errors.Is(err, domain.ErrSeatAlreadyBooked) {
+		http.Error(w, "This seat has already been booked.", http.StatusConflict)
+		return
+	} else if errors.Is(err, domain.ErrSeatAlreadyOnHold) {
+		http.Error(w, "This seat is currently on hold. Please choose another seat.", http.StatusConflict)
+		return
+	} else if err != nil {
 		http.Error(w, "Failed to create hold", http.StatusInternalServerError)
 		return
 	}
@@ -79,5 +92,5 @@ func (h *HoldHandler) CreateHold(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(hold)
-	
+
 }
