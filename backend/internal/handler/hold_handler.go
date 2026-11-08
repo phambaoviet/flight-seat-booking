@@ -22,9 +22,7 @@ type HoldService interface {
 }
 
 type HoldHandler struct {
-	HoldService interface {
-		CreateHold(ctx context.Context, req service.CreateHoldRequest) (sqlcdb.SeatHold, error)
-	}
+	HoldService HoldService
 }
 
 func NewHoldHandler(svc HoldService) *HoldHandler {
