@@ -21,10 +21,10 @@ func (m *mockHoldStore) CreateHoldTx(ctx context.Context, arg sqlcdb.CreateSeatH
 	return m.CreateHoldTxFunc(ctx, arg)
 }
 func randomUUID() pgtype.UUID {
-    return pgtype.UUID{
-        Bytes: uuid.New(),
-        Valid: true,
-    }
+	return pgtype.UUID{
+		Bytes: uuid.New(),
+		Valid: true,
+	}
 }
 
 func TestCreateHold_Success(t *testing.T) {
@@ -36,20 +36,20 @@ func TestCreateHold_Success(t *testing.T) {
 		SeatID:    randomUUID(),
 		HoldToken: randomUUID(),
 		CreatedAt: pgtype.Timestamptz{Time: now, Valid: true},
-		ExpiresAt: pgtype.Timestamptz{Time: now.Add(10 * time.Minute), Valid: true}, // 10 minutes later	
+		ExpiresAt: pgtype.Timestamptz{Time: now.Add(10 * time.Minute), Valid: true}, // 10 minutes later
 	}
-	
+
 	req := CreateHoldRequest{
-		UserID:    expectedHold.UserID,
-		SeatID:    expectedHold.SeatID,
+		UserID: expectedHold.UserID,
+		SeatID: expectedHold.SeatID,
 	}
 	// create a mock store that returns the expected hold
 	mockStore := &mockHoldStore{
 		CreateHoldTxFunc: func(ctx context.Context, gotArg sqlcdb.CreateSeatHoldParams) (sqlcdb.SeatHold, error) {
 			assert.Equal(t, req.UserID, gotArg.UserID)
-        	assert.Equal(t, req.SeatID, gotArg.SeatID)
+			assert.Equal(t, req.SeatID, gotArg.SeatID)
 			assert.True(t, gotArg.ID.Valid)
-        	assert.True(t, gotArg.HoldToken.Valid)
+			assert.True(t, gotArg.HoldToken.Valid)
 			return expectedHold, nil
 		},
 	}
@@ -58,13 +58,13 @@ func TestCreateHold_Success(t *testing.T) {
 	hold, err := service.CreateHold(context.Background(), req)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedHold, hold)
-	
+
 }
 func TestCreateHoldError(t *testing.T) {
 	expectedErr := errors.New("database error")
 	req := CreateHoldRequest{
-		UserID:    randomUUID(),
-		SeatID:    randomUUID(),
+		UserID: randomUUID(),
+		SeatID: randomUUID(),
 	}
 	// create a mock store that returns an error
 	mockStore := &mockHoldStore{

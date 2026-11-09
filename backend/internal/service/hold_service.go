@@ -9,18 +9,16 @@ import (
 )
 
 type HoldStore interface {
-	CreateHoldTx(ctx context.Context, arg sqlcdb.CreateSeatHoldParams,) (sqlcdb.SeatHold, error)
+	CreateHoldTx(ctx context.Context, arg sqlcdb.CreateSeatHoldParams) (sqlcdb.SeatHold, error)
 }
 type HoldService struct {
 	store HoldStore
 }
 
 type CreateHoldRequest struct {
-	UserID pgtype.UUID 
-	SeatID pgtype.UUID 
+	UserID pgtype.UUID
+	SeatID pgtype.UUID
 }
-
-
 
 func NewHoldService(store HoldStore) *HoldService {
 	return &HoldService{

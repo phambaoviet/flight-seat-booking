@@ -1,6 +1,7 @@
 package duffel
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,7 +9,9 @@ import (
 	"net/http"
 	"time"
 )
+
 const defaultBaseURL = "https://api.duffel.com"
+
 type Client struct {
 	HTTPClient *http.Client
 	BaseURL    string
@@ -16,27 +19,31 @@ type Client struct {
 }
 
 type FlightOfferResponse struct {
-    Data FlightOffer `json:"data"`
+	Data DuffelOfferRequestData `json:"data"`
 }
 
-type FlightOffer struct {
-	ID string `json:"id"`
-	TotalAmount string `json:"total_amount"`
+type DuffelOfferRequestData struct {
+	ID     string        `json:"id"`
+	Offers []DuffelOffer `json:"offers"`
+}
+
+type DuffelOffer struct {
+	ID            string `json:"id"`
+	TotalAmount   string `json:"total_amount"`
 	TotalCurrency string `json:"total_currency"`
 }
 
 type DuffelErrorResponse struct {
-    Errors []DuffelError `json:"errors"`
+	Errors []DuffelError `json:"errors"`
 }
 
 type DuffelError struct {
-    Title string `json:"title"`
+	Title   string `json:"title"`
 	Message string `json:"message"`
 }
 
-
 func NewClient(apiToken string) (*Client, error) {
-	
+
 	if apiToken == "" {
 		return nil, errors.New("API token is required")
 	}
@@ -44,8 +51,8 @@ func NewClient(apiToken string) (*Client, error) {
 		HTTPClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
-		BaseURL:    defaultBaseURL,
-		APIToken:   apiToken,
+		BaseURL:  defaultBaseURL,
+		APIToken: apiToken,
 	}, nil
 }
 
@@ -71,7 +78,7 @@ func (c *Client) do(req *http.Request) (*http.Response, error) {
 }
 func (c *Client) handleResponse(resp *http.Response) (*FlightOfferResponse, error) {
 	defer resp.Body.Close()
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {	
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		var flightOfferResp FlightOfferResponse
 		err := json.NewDecoder(resp.Body).Decode(&flightOfferResp)
 		if err != nil {
@@ -97,4 +104,20 @@ func (c *Client) handleResponse(resp *http.Response) (*FlightOfferResponse, erro
 		)
 	}
 
+}
+
+func (c *Client) SearchFlights(req *DuffelSearchRequest) (*FlightOfferResponse, error) {
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+	httpReq, err := c.newRequest("POST", "/air/offer_requests", bytes.NewReader(reqBody))
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	return c.handleResponse(resp)
 }

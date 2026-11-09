@@ -18,15 +18,14 @@ import (
 
 type mockHoldService struct {
 	CreateHoldFunc func(
-        ctx context.Context,
-        req service.CreateHoldRequest,
-    ) (sqlcdb.SeatHold, error)
+		ctx context.Context,
+		req service.CreateHoldRequest,
+	) (sqlcdb.SeatHold, error)
 }
 
 func (m *mockHoldService) CreateHold(ctx context.Context, arg service.CreateHoldRequest) (sqlcdb.SeatHold, error) {
 	return m.CreateHoldFunc(ctx, arg)
 }
-
 
 func TestCreateHold_InvalidSeatID(t *testing.T) {
 	invalidJSON := `{"seat_id": "invalid-uuid", "user_id": "invalid-uuid"}`
@@ -45,21 +44,21 @@ func TestCreateHold_InvalidSeatID(t *testing.T) {
 	// Create a mock service that sets serviceCalled to true if called
 	mockSvc := &mockHoldService{
 		CreateHoldFunc: func(
-            ctx context.Context,
-            gotArg service.CreateHoldRequest,
-        ) (sqlcdb.SeatHold, error) {
-            serviceCalled = true
-            return sqlcdb.SeatHold{}, nil
-        },
+			ctx context.Context,
+			gotArg service.CreateHoldRequest,
+		) (sqlcdb.SeatHold, error) {
+			serviceCalled = true
+			return sqlcdb.SeatHold{}, nil
+		},
 	}
 	handler := NewHoldHandler(mockSvc)
-    handler.CreateHold(rr, req)
+	handler.CreateHold(rr, req)
 
 	// Check the response status code
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
-    assert.False(t, serviceCalled)
+	assert.False(t, serviceCalled)
 }
-func TestCreateHold_InvalidUserID(t *testing.T){
+func TestCreateHold_InvalidUserID(t *testing.T) {
 	invalidJSON := `{"seat_id": "550e8400-e29b-41d4-a716-446655440000", "user_id": "invalid-uuid"}`
 
 	req := httptest.NewRequest(
@@ -82,8 +81,8 @@ func TestCreateHold_InvalidUserID(t *testing.T){
 			serviceCalled = true
 			return sqlcdb.SeatHold{}, nil
 		},
-	}	
-	
+	}
+
 	// Create a handler with the mock service
 	handler := NewHoldHandler(mockSvc)
 	handler.CreateHold(rr, req)
@@ -93,7 +92,7 @@ func TestCreateHold_InvalidUserID(t *testing.T){
 	assert.False(t, serviceCalled)
 }
 func TestCreateHold_InvalidJSON(t *testing.T) {
-	invalidJSON := `{"seat_id": "550e8400-e29b-41d4-a716-446655440000", "user_id": }` 
+	invalidJSON := `{"seat_id": "550e8400-e29b-41d4-a716-446655440000", "user_id": }`
 
 	req := httptest.NewRequest(
 		http.MethodPost,
@@ -101,7 +100,7 @@ func TestCreateHold_InvalidJSON(t *testing.T) {
 		strings.NewReader(invalidJSON),
 	)
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	rr := httptest.NewRecorder()
 
 	// Create a mock service that sets serviceCalled to true if called
@@ -129,7 +128,7 @@ func TestCreateHold_ServiceError(t *testing.T) {
 		"seat_id": "550e8400-e29b-41d4-a716-446655440000",
 		"user_id": "123e4567-e89b-12d3-a456-426614174000"
 	}`
-	
+
 	req := httptest.NewRequest(
 		http.MethodPost,
 		"/api/holds",
