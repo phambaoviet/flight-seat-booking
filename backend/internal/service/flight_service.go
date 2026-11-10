@@ -32,9 +32,9 @@ type SearchFlightsResponse struct {
 }
 
 type FlightOffer struct {
-	ID            string
-	TotalAmount   string
-	TotalCurrency string
+	ID            string `json:"id"`
+	TotalAmount   string `json:"total_amount"`
+	TotalCurrency string `json:"total_currency"`
 }
 
 type FlightService interface {
@@ -44,25 +44,30 @@ type FlightService interface {
 	) (*SearchFlightsResponse, error)
 }
 
-type FlightHandler struct {
-	FlightService FlightService
-}
-
 type DuffelClient interface {
 	SearchFlights(ctx context.Context, req duffel.DuffelSearchParams) (*duffel.FlightOfferResponse, error)
 }
 
 type flightServiceImpl struct {
-	DuffelClient DuffelClient
+	duffelClient DuffelClient
 }
 
 func NewFlightService(duffelClient DuffelClient) *flightServiceImpl {
 	return &flightServiceImpl{
-		DuffelClient: duffelClient,
+		duffelClient: duffelClient,
 	}
 }
 
 func (s *flightServiceImpl) SearchFlights(ctx context.Context, req SearchFlightsRequest) (*SearchFlightsResponse, error) {
+	// Normalize the request before validation
+	req = normalizeSearchFlightsRequest(req)
+
+	// Validate the request
+	if err := validateSearchFlightsRequest(req); err != nil {
+		return nil, fmt.Errorf("invalid search flights request: %w", err)
+	}
+
+	// Build the Duffel search parameters
 	duffelReq := duffel.DuffelSearchParams{
 		Origin:      req.Origin,
 		Destination: req.Destination,
@@ -74,11 +79,17 @@ func (s *flightServiceImpl) SearchFlights(ctx context.Context, req SearchFlights
 		TripType:    duffel.TripType(req.TripType),
 	}
 
-	duffelResp, err := s.DuffelClient.SearchFlights(ctx, duffelReq)
+	// Call the Duffel API to search for flights
+	duffelResp, err := s.duffelClient.SearchFlights(ctx, duffelReq)
+	
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to search flights with Duffel: %w", err)
+	}
+	if duffelResp == nil {
+		return nil, errors.New("Duffel returned an empty response")
 	}
 
+	// Map the Duffel response to the service response
 	flightOffers := make([]FlightOffer, 0, len(duffelResp.Data.Offers))
 	for _, offer := range duffelResp.Data.Offers {
 		flightOffers = append(flightOffers, FlightOffer{
@@ -88,6 +99,7 @@ func (s *flightServiceImpl) SearchFlights(ctx context.Context, req SearchFlights
 		})
 	}
 
+	// Return the response
 	return &SearchFlightsResponse{
 		FlightOffers: flightOffers,
 	}, nil
@@ -178,4 +190,14 @@ func validateSearchFlightsRequest(req SearchFlightsRequest) error {
 	}
 
 	return nil
+}
+func normalizeSearchFlightsRequest(req SearchFlightsRequest) SearchFlightsRequest {
+
+	req.Origin = strings.ToUpper(strings.TrimSpace(req.Origin))
+	req.Destination = strings.ToUpper(strings.TrimSpace(req.Destination))
+	
+	req.Departure = strings.TrimSpace(req.Departure)
+	req.Return = strings.TrimSpace(req.Return)
+
+    return req
 }

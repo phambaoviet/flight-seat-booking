@@ -15,3 +15,4 @@ type FlightService interface {
 type FlightHandler struct {
 	FlightService FlightService
 }
+
