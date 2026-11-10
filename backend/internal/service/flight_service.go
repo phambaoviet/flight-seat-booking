@@ -81,7 +81,7 @@ func (s *flightServiceImpl) SearchFlights(ctx context.Context, req SearchFlights
 
 	// Call the Duffel API to search for flights
 	duffelResp, err := s.duffelClient.SearchFlights(ctx, duffelReq)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to search flights with Duffel: %w", err)
 	}
@@ -195,9 +195,9 @@ func normalizeSearchFlightsRequest(req SearchFlightsRequest) SearchFlightsReques
 
 	req.Origin = strings.ToUpper(strings.TrimSpace(req.Origin))
 	req.Destination = strings.ToUpper(strings.TrimSpace(req.Destination))
-	
+
 	req.Departure = strings.TrimSpace(req.Departure)
 	req.Return = strings.TrimSpace(req.Return)
 
-    return req
+	return req
 }

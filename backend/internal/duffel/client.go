@@ -2,11 +2,13 @@ package duffel
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -44,7 +46,7 @@ type DuffelError struct {
 
 func NewClient(apiToken string) (*Client, error) {
 
-	if apiToken == "" {
+	if strings.TrimSpace(apiToken) == "" {
 		return nil, errors.New("API token is required")
 	}
 	return &Client{
@@ -79,8 +81,13 @@ func (c *Client) do(req *http.Request) (*http.Response, error) {
 func (c *Client) handleResponse(resp *http.Response) (*FlightOfferResponse, error) {
 	defer resp.Body.Close()
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		body, err := io.ReadAll(resp.Body)
+        if err != nil {
+            return nil, err
+        }
+
 		var flightOfferResp FlightOfferResponse
-		err := json.NewDecoder(resp.Body).Decode(&flightOfferResp)
+		err = json.Unmarshal(body, &flightOfferResp)
 		if err != nil {
 			return nil, err
 		}
@@ -106,8 +113,10 @@ func (c *Client) handleResponse(resp *http.Response) (*FlightOfferResponse, erro
 
 }
 
-func (c *Client) SearchFlights(req *DuffelSearchRequest) (*FlightOfferResponse, error) {
-	reqBody, err := json.Marshal(req)
+func (c *Client) SearchFlights(ctx context.Context, req DuffelSearchParams) (*FlightOfferResponse, error) {
+	searchRequest := buildSearchRequest(req)
+
+	reqBody, err := json.Marshal(searchRequest)
 	if err != nil {
 		return nil, err
 	}

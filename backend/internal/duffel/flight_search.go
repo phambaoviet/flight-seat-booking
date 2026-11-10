@@ -15,6 +15,7 @@ type DuffelSearchParams struct {
 	Adults      int
 	Children    int
 	Infants     int
+	CabinClass  string
 	TripType    TripType
 }
 
@@ -80,7 +81,7 @@ func buildSearchRequest(req DuffelSearchParams) DuffelSearchRequest {
 		Data: DuffelSearchData{
 			Slices:     buildSlices(req),
 			Passengers: buildPassengers(req.Adults, req.Children, req.Infants),
-			CabinClass: "economy",
+			CabinClass: req.CabinClass,
 		},
 	}
 }

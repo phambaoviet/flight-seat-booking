@@ -28,10 +28,10 @@ func TestFlightHandler_SearchFlight_Success(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	
+
 	departure := time.Now().In(loc).
-    AddDate(0, 0, 30).
-    Format("2006-01-02")
+		AddDate(0, 0, 30).
+		Format("2006-01-02")
 
 	called := false
 	// Create a mock flight service
@@ -50,12 +50,11 @@ func TestFlightHandler_SearchFlight_Success(t *testing.T) {
 	// Create a flight handler with the mock service
 	handler := NewFlightHandler(mockService)
 
-
 	// Create a HTTP POST request with the test data
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/flights/search", strings.NewReader(`{
 		"origin": "JFK",
 		"destination": "LAX",
-		"departure": "` + departure + `",
+		"departure": "`+departure+`",
 		"return": "",
 		"adults": 1,
 		"children": 0,
@@ -63,7 +62,7 @@ func TestFlightHandler_SearchFlight_Success(t *testing.T) {
 		"trip_type": "one-way"
 	}`))
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	// Create a ResponseRecorder to capture the response
 	rr := httptest.NewRecorder()
 
@@ -81,9 +80,9 @@ func TestFlightHandler_SearchFlight_Success(t *testing.T) {
 	expectedBody := `{"flight_offers":[{"id":"1","total_amount":"100.00","total_currency":"USD"},{"id":"2","total_amount":"200.00","total_currency":"USD"}]}`
 	if strings.TrimSpace(rr.Body.String()) != expectedBody {
 		t.Errorf("expected response body %s, got %s", expectedBody, rr.Body.String())
-	}	
-		
-}	
+	}
+
+}
 func TestFlightHandler_SearchFlights_InvalidMethod(t *testing.T) {
 	called := false
 	// Create a mock flight service
@@ -114,7 +113,7 @@ func TestFlightHandler_SearchFlights_InvalidMethod(t *testing.T) {
 	// Check the response status code
 	if rr.Code != http.StatusMethodNotAllowed {
 		t.Errorf("expected status code %d, got %d", http.StatusMethodNotAllowed, rr.Code)
-	}	
+	}
 }
 
 func TestFlightHandler_SearchFlights_InvalidJSON(t *testing.T) {
@@ -145,7 +144,7 @@ func TestFlightHandler_SearchFlights_InvalidJSON(t *testing.T) {
 	// Check the response status code
 	if rr.Code != http.StatusBadRequest {
 		t.Errorf("expected status code %d, got %d", http.StatusBadRequest, rr.Code)
-	}	
+	}
 }
 
 func TestFlightHandler_SearchFlights_ServiceError(t *testing.T) {
@@ -154,10 +153,10 @@ func TestFlightHandler_SearchFlights_ServiceError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	
+
 	departure := time.Now().In(loc).
-	AddDate(0, 0, 30).
-	Format("2006-01-02")
+		AddDate(0, 0, 30).
+		Format("2006-01-02")
 
 	called := false
 	// Create a mock flight service that returns an error
@@ -175,7 +174,7 @@ func TestFlightHandler_SearchFlights_ServiceError(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/flights/search", strings.NewReader(`{
 		"origin": "JFK",
 		"destination": "LAX",
-		"departure": "` + departure + `",
+		"departure": "`+departure+`",
 		"return": "",
 		"adults": 1,
 		"children": 0,
@@ -195,5 +194,5 @@ func TestFlightHandler_SearchFlights_ServiceError(t *testing.T) {
 	// Check the response status code
 	if rr.Code != http.StatusInternalServerError {
 		t.Errorf("expected status code %d, got %d", http.StatusInternalServerError, rr.Code)
-	}	
+	}
 }

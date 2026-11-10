@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"flight-booking/internal/service"
+	"log"
 	"net/http"
 )
-
 
 type TripType string
 
@@ -16,21 +16,21 @@ const (
 )
 
 type SearchFlightsRequest struct {
-	Origin      string `json:"origin"`
-	Destination string `json:"destination"`
-	Departure   string `json:"departure"`
-	Return      string `json:"return"`
-	Adults      int	 	`json:"adults"`
-	Children    int	 	`json:"children"`
-	Infants     int	 	`json:"infants"`
-	TripType    TripType 	`json:"trip_type"`
+	Origin      string   `json:"origin"`
+	Destination string   `json:"destination"`
+	Departure   string   `json:"departure"`
+	Return      string   `json:"return"`
+	Adults      int      `json:"adults"`
+	Children    int      `json:"children"`
+	Infants     int      `json:"infants"`
+	TripType    TripType `json:"trip_type"`
 }
 
 type FlightService interface {
-    SearchFlights(
-        ctx context.Context,
-        req service.SearchFlightsRequest,
-    ) (*service.SearchFlightsResponse, error)
+	SearchFlights(
+		ctx context.Context,
+		req service.SearchFlightsRequest,
+	) (*service.SearchFlightsResponse, error)
 }
 
 type FlightOffer struct {
@@ -49,7 +49,6 @@ func NewFlightHandler(flightService FlightService) *FlightHandler {
 	}
 }
 
-
 func (h *FlightHandler) SearchFlights(w http.ResponseWriter, r *http.Request) {
 	// Check if the request method is POST
 	if r.Method != http.MethodPost {
@@ -64,7 +63,7 @@ func (h *FlightHandler) SearchFlights(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	
+
 	// Call the flight service to search for flights
 	resp, err := h.flightService.SearchFlights(r.Context(), service.SearchFlightsRequest{
 		Origin:      req.Origin,
@@ -78,6 +77,7 @@ func (h *FlightHandler) SearchFlights(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
+		log.Printf("ERROR: failed to search flights: %v", err)
 		http.Error(w, "Failed to search flights: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -92,7 +92,6 @@ func (h *FlightHandler) SearchFlights(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-
 
 	if _, err := w.Write(jsonBytes); err != nil {
 		http.Error(w, "Failed to encode response: "+err.Error(), http.StatusInternalServerError)

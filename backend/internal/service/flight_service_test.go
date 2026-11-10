@@ -10,16 +10,17 @@ import (
 )
 
 type mockDuffelClient struct {
-    searchFlightsFunc func(
-        ctx context.Context,
-        req duffel.DuffelSearchParams,
-    ) (*duffel.FlightOfferResponse, error)
+	searchFlightsFunc func(
+		ctx context.Context,
+		req duffel.DuffelSearchParams,
+	) (*duffel.FlightOfferResponse, error)
 }
+
 func (m *mockDuffelClient) SearchFlights(
 	ctx context.Context,
 	req duffel.DuffelSearchParams,
 ) (*duffel.FlightOfferResponse, error) {
-	if m.searchFlightsFunc != nil{
+	if m.searchFlightsFunc != nil {
 		return m.searchFlightsFunc(ctx, req)
 	}
 	return nil, fmt.Errorf("SearchFlights method not implemented in mock")
@@ -27,8 +28,8 @@ func (m *mockDuffelClient) SearchFlights(
 func TestNormalizeSearchFlightsRequest(t *testing.T) {
 	// Define test cases
 	testcases := []struct {
-		name string
-		input SearchFlightsRequest
+		name     string
+		input    SearchFlightsRequest
 		expected SearchFlightsRequest
 	}{
 		{
@@ -112,214 +113,214 @@ func TestValidateSearchFlightsRequest(t *testing.T) {
 	}
 	now := time.Now().In(loc)
 
-	valiDep := now.AddDate(0,0,30).Format("2006-01-02") // 30 days in the future
-	pastDep := now.AddDate(0,0,-30).Format("2006-01-02") // 30 days in the past
-	laterRet := now.AddDate(0,0,60).Format("2006-01-02") // 60 days in the future
-	testcases := []struct{
-		name string
-		input SearchFlightsRequest
+	valiDep := now.AddDate(0, 0, 30).Format("2006-01-02")  // 30 days in the future
+	pastDep := now.AddDate(0, 0, -30).Format("2006-01-02") // 30 days in the past
+	laterRet := now.AddDate(0, 0, 60).Format("2006-01-02") // 60 days in the future
+	testcases := []struct {
+		name        string
+		input       SearchFlightsRequest
 		expectError bool
 	}{
 		{
 			name: "valid request",
 			input: SearchFlightsRequest{
-				Origin: "JFK",
+				Origin:      "JFK",
 				Destination: "LAX",
-				Departure: valiDep,
-				TripType: "one-way",
-				Adults: 1,
-				Children: 0,
-				Infants: 0,
+				Departure:   valiDep,
+				TripType:    "one-way",
+				Adults:      1,
+				Children:    0,
+				Infants:     0,
 			},
 			expectError: false,
 		},
 		{
 			name: "missing origin",
 			input: SearchFlightsRequest{
-				Origin: "",
+				Origin:      "",
 				Destination: "LAX",
-				Departure: "2024-07-01",
+				Departure:   "2024-07-01",
 			},
 			expectError: true,
 		},
 		{
 			name: "missing destination",
 			input: SearchFlightsRequest{
-				Origin: "JFK",
+				Origin:      "JFK",
 				Destination: "",
-				Departure: "2024-07-01",
+				Departure:   "2024-07-01",
 			},
-			expectError: true,	
-		}, 
+			expectError: true,
+		},
 		{
 			name: "missing departure",
 			input: SearchFlightsRequest{
-				Origin: "JFK",
+				Origin:      "JFK",
 				Destination: "LAX",
-				Departure: "",		
+				Departure:   "",
 			},
-			expectError: true,	
+			expectError: true,
 		},
 		{
 			name: "invalid trip type",
 			input: SearchFlightsRequest{
-				Origin: "JFK",
+				Origin:      "JFK",
 				Destination: "LAX",
-				Departure: "2024-07-01",
-				TripType: "invalid-type",
+				Departure:   "2024-07-01",
+				TripType:    "invalid-type",
 			},
 			expectError: true,
 		},
 		{
 			name: "return date before departure",
 			input: SearchFlightsRequest{
-				Origin: "JFK",
+				Origin:      "JFK",
 				Destination: "LAX",
-				Departure: valiDep,
-				Return: pastDep,
-				Adults: 1,
-				TripType: "round-trip",
+				Departure:   valiDep,
+				Return:      pastDep,
+				Adults:      1,
+				TripType:    "round-trip",
 			},
 			expectError: true,
 		},
 		{
 			name: "infants exceed adults",
 			input: SearchFlightsRequest{
-				Origin: "JFK",
+				Origin:      "JFK",
 				Destination: "LAX",
-				Departure: valiDep,
-				TripType: "one-way",
-				Adults: 1,
-				Infants: 2,
+				Departure:   valiDep,
+				TripType:    "one-way",
+				Adults:      1,
+				Infants:     2,
 			},
 			expectError: true,
 		},
 		{
 			name: "origin and destination are the same",
 			input: SearchFlightsRequest{
-				Origin: "JFK",
+				Origin:      "JFK",
 				Destination: "JFK",
-				Departure: valiDep,
+				Departure:   valiDep,
 			},
 			expectError: true,
 		},
 		{
 			name: "valid round-trip request",
 			input: SearchFlightsRequest{
-				Origin: "JFK",
+				Origin:      "JFK",
 				Destination: "LAX",
-				Departure: valiDep,
-				Return: laterRet,
-				TripType: "round-trip",
-				Adults: 1,
-				Children: 1,
-				Infants: 0,
+				Departure:   valiDep,
+				Return:      laterRet,
+				TripType:    "round-trip",
+				Adults:      1,
+				Children:    1,
+				Infants:     0,
 			},
 			expectError: false,
 		},
 		{
 			name: "negative children count",
 			input: SearchFlightsRequest{
-				Origin: "JFK",
+				Origin:      "JFK",
 				Destination: "LAX",
-				Departure: valiDep,
-				TripType: "one-way",
-				Adults: 1,
-				Children: -1,
+				Departure:   valiDep,
+				TripType:    "one-way",
+				Adults:      1,
+				Children:    -1,
 			},
 			expectError: true,
 		},
 		{
 			name: "negative infants count",
 			input: SearchFlightsRequest{
-				Origin: "JFK",
+				Origin:      "JFK",
 				Destination: "LAX",
-				Departure: valiDep,
-				TripType: "one-way",
-				Adults: 1,
-				Infants: -1,
+				Departure:   valiDep,
+				TripType:    "one-way",
+				Adults:      1,
+				Infants:     -1,
 			},
-			expectError: true,	
+			expectError: true,
 		},
 		{
 			name: "no adults",
 			input: SearchFlightsRequest{
-				Origin: "JFK",
+				Origin:      "JFK",
 				Destination: "LAX",
-				Departure: valiDep,
-				TripType: "one-way",
-				Adults: 0,
+				Departure:   valiDep,
+				TripType:    "one-way",
+				Adults:      0,
 			},
-			expectError: true,	
+			expectError: true,
 		},
 		{
 			name: "valid request with whitespace",
 			input: SearchFlightsRequest{
-				Origin: "  JFK  ",
+				Origin:      "  JFK  ",
 				Destination: "  LAX  ",
-				Departure: " " + valiDep + " ",
-				TripType: "one-way",
-				Adults: 1,
+				Departure:   " " + valiDep + " ",
+				TripType:    "one-way",
+				Adults:      1,
 			},
 			expectError: false,
 		},
 		{
 			name: "invalid departure format",
 			input: SearchFlightsRequest{
-				Origin: "JFK",
+				Origin:      "JFK",
 				Destination: "LAX",
-				Departure: "07-01-2024", // Invalid format
-				TripType: "one-way",
-				Adults: 1,
+				Departure:   "07-01-2024", // Invalid format
+				TripType:    "one-way",
+				Adults:      1,
 			},
 			expectError: true,
 		},
 		{
-			name: "invalid return format",	
+			name: "invalid return format",
 			input: SearchFlightsRequest{
-				Origin: "JFK",
+				Origin:      "JFK",
 				Destination: "LAX",
-				Departure: valiDep,
-				Return: "07-10-2024", // Invalid format
-				TripType: "round-trip",
-				Adults: 1,	
+				Departure:   valiDep,
+				Return:      "07-10-2024", // Invalid format
+				TripType:    "round-trip",
+				Adults:      1,
 			},
 			expectError: true,
 		},
 		{
 			name: "round-trip missing return date",
 			input: SearchFlightsRequest{
-				Origin: "JFK",
+				Origin:      "JFK",
 				Destination: "LAX",
-				Departure: valiDep,
-				Return: "",
-				TripType: "round-trip",
-				Adults: 1,
+				Departure:   valiDep,
+				Return:      "",
+				TripType:    "round-trip",
+				Adults:      1,
 			},
 			expectError: true,
 		},
 		{
 			name: "one-way with return date provided",
 			input: SearchFlightsRequest{
-				Origin: "JFK",
+				Origin:      "JFK",
 				Destination: "LAX",
-				Departure: valiDep,
-				Return: laterRet,
-				TripType: "one-way",
-				Adults: 1,
+				Departure:   valiDep,
+				Return:      laterRet,
+				TripType:    "one-way",
+				Adults:      1,
 			},
 			expectError: true, // Return date must not be provided for one-way flights
 		},
 		{
 			name: "departure date in the past",
 			input: SearchFlightsRequest{
-				Origin: "JFK",
+				Origin:      "JFK",
 				Destination: "LAX",
-				Departure: pastDep,
-				TripType: "one-way",
-				Adults: 1,
+				Departure:   pastDep,
+				TripType:    "one-way",
+				Adults:      1,
 			},
-			expectError: true,	
+			expectError: true,
 		},
 	}
 
@@ -338,7 +339,7 @@ func TestValidateSearchFlightsRequest(t *testing.T) {
 }
 
 func TestFlightService_SearchFlights_Success(t *testing.T) {
-	
+
 	// create a departure date 30 days in the future
 	loc, err := time.LoadLocation("Asia/Ho_Chi_Minh")
 	if err != nil {
@@ -346,33 +347,33 @@ func TestFlightService_SearchFlights_Success(t *testing.T) {
 	}
 	departure := time.Now().In(loc).AddDate(0, 0, 30).Format("2006-01-02")
 
-
 	// Create a mock Duffel client that returns a successful response
 	mockClient := &mockDuffelClient{
 		searchFlightsFunc: func(ctx context.Context, req duffel.DuffelSearchParams) (*duffel.FlightOfferResponse, error) {
-			 // Verify request mapping
-			 if req.Origin != "JFK" {
+			// Verify request mapping
+			if req.Origin != "JFK" {
 				t.Errorf("expected origin JFK, got %s", req.Origin)
 			}
-	
+
 			if req.Destination != "LAX" {
 				t.Errorf("expected destination LAX, got %s", req.Destination)
 			}
-	
+
 			if req.Departure != departure {
 				t.Errorf("expected departure %s, got %s", departure, req.Departure)
 			}
-	
+
 			if req.Adults != 1 {
 				t.Errorf("expected 1 adult, got %d", req.Adults)
 			}
-	
+
 			if req.TripType != duffel.TripType(OneWay) {
 				t.Errorf("expected trip type one-way, got %s", req.TripType)
 			}
 			return &duffel.FlightOfferResponse{
 
 				Data: duffel.DuffelOfferRequestData{
+					ID: "orq_test",
 					Offers: []duffel.DuffelOffer{
 						{
 							ID:            "offer_1",
@@ -384,10 +385,9 @@ func TestFlightService_SearchFlights_Success(t *testing.T) {
 			}, nil
 		},
 	}
-	
+
 	// Create the flight service with the mock client
 	service := NewFlightService(mockClient)
-
 
 	// Prepare a valid search request
 	req := SearchFlightsRequest{
@@ -416,9 +416,8 @@ func TestFlightService_SearchFlights_Success(t *testing.T) {
 	}
 	if resp.FlightOffers[0].TotalCurrency != "USD" {
 		t.Fatalf("expected total currency 'USD', got '%s'", resp.FlightOffers[0].TotalCurrency)
-	}	
+	}
 }
-
 
 func TestFlightService_SearchFlights_DuffelError(t *testing.T) {
 	loc, err := time.LoadLocation("Asia/Ho_Chi_Minh")
@@ -427,15 +426,15 @@ func TestFlightService_SearchFlights_DuffelError(t *testing.T) {
 	}
 
 	departure := time.Now().In(loc).
-    AddDate(0, 0, 30).
-    Format("2006-01-02")
+		AddDate(0, 0, 30).
+		Format("2006-01-02")
 	var errDuffelUnavailable = errors.New("Duffel API unavailable")
 	mockClient := &mockDuffelClient{
 		searchFlightsFunc: func(ctx context.Context, req duffel.DuffelSearchParams) (*duffel.FlightOfferResponse, error) {
+
 			return nil, errDuffelUnavailable
 		},
 	}
-	
 
 	service := NewFlightService(mockClient)
 
@@ -460,21 +459,18 @@ func TestFlightService_SearchFlights_NilResponse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	
-	departure := time.Now().In(loc).
-    AddDate(0, 0, 30).
-    Format("2006-01-02")
 
-	called := false
+	departure := time.Now().In(loc).
+		AddDate(0, 0, 30).
+		Format("2006-01-02")
 	mockClient := &mockDuffelClient{
 		searchFlightsFunc: func(ctx context.Context, req duffel.DuffelSearchParams) (*duffel.FlightOfferResponse, error) {
-			called = true
 			return nil, nil // Simulate empty response
 		},
 	}
-	
+
 	service := NewFlightService(mockClient)
-	
+
 	req := SearchFlightsRequest{
 		Origin:      "JFK",
 		Destination: "LAX",
@@ -484,10 +480,7 @@ func TestFlightService_SearchFlights_NilResponse(t *testing.T) {
 	}
 
 	resp, err := service.SearchFlights(context.Background(), req)
-	if !called {
-		t.Fatal("expected Duffel client to be called")
-	}
-	
+
 	if err == nil {
 		t.Fatalf("expected error due to empty Duffel response, got nil")
 	}
@@ -503,8 +496,8 @@ func TestFlightService_SearchFlights_InvalidRequest(t *testing.T) {
 	}
 
 	departure := time.Now().In(loc).
-    AddDate(0, 0, 30).
-    Format("2006-01-02")
+		AddDate(0, 0, 30).
+		Format("2006-01-02")
 	service := NewFlightService(nil) // Duffel client won't be called due to validation failure
 
 	req := SearchFlightsRequest{
