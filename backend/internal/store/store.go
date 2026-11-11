@@ -54,3 +54,28 @@ func (s *Store) ReleaseHoldTx(ctx context.Context, holdID pgtype.UUID,) (sqlcdb.
 	})
 	return result, err
 }
+
+func (s *Store) CancelBookingTx(ctx context.Context, bookingID pgtype.UUID, bookingCode string, userID pgtype.UUID) (sqlcdb.Booking, error) {
+	var result sqlcdb.Booking
+	err := s.execTx(ctx, func(q *sqlcdb.Queries) error {
+		var err error
+		result, err = q.CancelBooking(ctx, sqlcdb.CancelBookingParams{
+			ID:          bookingID,
+			BookingCode: bookingCode,
+			UserID:      userID,
+		})	
+		
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.ErrBookingNotFound
+		}
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return sqlcdb.Booking{}, err
+	}
+	
+	return result, nil
+}

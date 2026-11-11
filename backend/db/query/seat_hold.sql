@@ -49,3 +49,22 @@ RETURNING *;
 SELECT *
 FROM seat_holds
 WHERE id = $1;
+
+-- name: ConvertSeatHold :one
+UPDATE seat_holds
+SET status = 'CONVERTED'
+WHERE seat_id = $1
+AND user_id = $2
+AND hold_token = $3
+AND status = 'ACTIVE'
+AND expires_at > CURRENT_TIMESTAMP
+RETURNING *;
+
+-- name: CreateBookingFromHold :one
+INSERT INTO bookings (id, user_id, seat_id, booking_code, status)
+SELECT $1, seat_holds.user_id, seat_holds.seat_id, $4, 'CONFIRMED'
+FROM seat_holds
+WHERE seat_holds.id  = $2
+AND seat_holds.user_id = $3
+AND seat_holds.status = 'CONVERTED'
+RETURNING *;

@@ -20,6 +20,7 @@ type ConfirmBookingTxParams struct {
 
 func (s *Store) ConfirmBookingTx(ctx context.Context, arg ConfirmBookingTxParams) (sqlcdb.Booking, error) {
 	var result sqlcdb.Booking
+	
 	err := s.execTx(ctx, func(q *sqlcdb.Queries) error {
 		var err error
 		// Lock seat to prevent concurrent booking
@@ -30,38 +31,45 @@ func (s *Store) ConfirmBookingTx(ctx context.Context, arg ConfirmBookingTxParams
 			}
 			return err
 		}
-		// Check if the seat is already booked
-		hold, err := q.GetActiveHoldByToken(ctx, sqlcdb.GetActiveHoldByTokenParams{
+
+		// GetConfrimBooking to check if the seat is already booked
+		_, err = q.GetConfirmedBooking(ctx, arg.SeatID)
+		if err == nil {
+			return domain.ErrSeatAlreadyBooked
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		
+		// Convert seat hold to booking
+		hold, err := q.ConvertSeatHold(ctx, sqlcdb.ConvertSeatHoldParams{
 			SeatID:    arg.SeatID,
 			UserID:    arg.UserID,
 			HoldToken: arg.HoldToken,
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return domain.ErrHoldNotFound
+				return domain.ErrSeatHoldNotFound
 			}
 			return err
 		}
-		// Check if the seat is already booked
-		bookingArg := sqlcdb.CreateBookingParams{
+		
+		// Call convert
+		book, err := q.CreateBookingFromHold(ctx, sqlcdb.CreateBookingFromHoldParams{
 			ID:          arg.BookingID,
-			UserID:      hold.UserID,
-			SeatID:      hold.SeatID,
+			ID_2: 	   		hold.ID,
+			UserID:      arg.UserID,
 			BookingCode: arg.BookingCode,
-			Status:      "CONFIRMED",
-		}
-
-		result, err = q.CreateBooking(ctx, bookingArg)
+		})
 		if err != nil {
 			return err
 		}
-		// Delete the seat hold after successful booking
-		err = q.DeleteSeatHold(ctx, hold.ID)
-		if err != nil {
-			return err
-		}
-
+		
+		result = book
 		return nil
 	})
-	return result, err
+	if err != nil {
+		return sqlcdb.Booking{}, err
+	}
+	return result, nil
 }

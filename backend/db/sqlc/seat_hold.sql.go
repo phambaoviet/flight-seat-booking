@@ -11,6 +11,39 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const convertSeatHold = `-- name: ConvertSeatHold :one
+UPDATE seat_holds
+SET status = 'CONVERTED'
+WHERE seat_id = $1
+AND user_id = $2
+AND hold_token = $3
+AND status = 'ACTIVE'
+AND expires_at > CURRENT_TIMESTAMP
+RETURNING id, user_id, seat_id, hold_token, created_at, expires_at, status, released_at
+`
+
+type ConvertSeatHoldParams struct {
+	SeatID    pgtype.UUID `json:"seat_id"`
+	UserID    pgtype.UUID `json:"user_id"`
+	HoldToken pgtype.UUID `json:"hold_token"`
+}
+
+func (q *Queries) ConvertSeatHold(ctx context.Context, arg ConvertSeatHoldParams) (SeatHold, error) {
+	row := q.db.QueryRow(ctx, convertSeatHold, arg.SeatID, arg.UserID, arg.HoldToken)
+	var i SeatHold
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.SeatID,
+		&i.HoldToken,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.Status,
+		&i.ReleasedAt,
+	)
+	return i, err
+}
+
 const countActiveHold = `-- name: CountActiveHold :one
 SELECT COUNT(*)
 FROM seat_holds
@@ -23,6 +56,42 @@ func (q *Queries) CountActiveHold(ctx context.Context, seatID pgtype.UUID) (int6
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const createBookingFromHold = `-- name: CreateBookingFromHold :one
+INSERT INTO bookings (id, user_id, seat_id, booking_code, status)
+SELECT $1, seat_holds.user_id, seat_holds.seat_id, $4, 'CONFIRMED'
+FROM seat_holds
+WHERE seat_holds.id  = $2
+AND seat_holds.user_id = $3
+AND seat_holds.status = 'CONVERTED'
+RETURNING id, user_id, seat_id, booking_code, status, created_at
+`
+
+type CreateBookingFromHoldParams struct {
+	ID          pgtype.UUID `json:"id"`
+	ID_2        pgtype.UUID `json:"id_2"`
+	UserID      pgtype.UUID `json:"user_id"`
+	BookingCode string      `json:"booking_code"`
+}
+
+func (q *Queries) CreateBookingFromHold(ctx context.Context, arg CreateBookingFromHoldParams) (Booking, error) {
+	row := q.db.QueryRow(ctx, createBookingFromHold,
+		arg.ID,
+		arg.ID_2,
+		arg.UserID,
+		arg.BookingCode,
+	)
+	var i Booking
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.SeatID,
+		&i.BookingCode,
+		&i.Status,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const createSeatHold = `-- name: CreateSeatHold :one

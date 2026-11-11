@@ -8,4 +8,5 @@ var (
 	ErrSeatAlreadyOnHold = errors.New("seat is already on hold")
 	ErrHoldNotFound      = errors.New("hold not found")
 	ErrSeatHoldNotFound = errors.New("seat hold not found")
+	ErrBookingNotFound   = errors.New("booking not found")
 )

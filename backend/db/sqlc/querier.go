@@ -11,8 +11,11 @@ import (
 )
 
 type Querier interface {
+	CancelBooking(ctx context.Context, arg CancelBookingParams) (Booking, error)
+	ConvertSeatHold(ctx context.Context, arg ConvertSeatHoldParams) (SeatHold, error)
 	CountActiveHold(ctx context.Context, seatID pgtype.UUID) (int64, error)
 	CreateBooking(ctx context.Context, arg CreateBookingParams) (Booking, error)
+	CreateBookingFromHold(ctx context.Context, arg CreateBookingFromHoldParams) (Booking, error)
 	CreateFlight(ctx context.Context, arg CreateFlightParams) (Flight, error)
 	CreateSeat(ctx context.Context, arg CreateSeatParams) (Seat, error)
 	CreateSeatHold(ctx context.Context, arg CreateSeatHoldParams) (SeatHold, error)

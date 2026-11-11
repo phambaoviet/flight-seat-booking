@@ -11,6 +11,36 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const cancelBooking = `-- name: CancelBooking :one
+UPDATE bookings
+SET status = 'CANCELLED'
+WHERE id = $1
+AND booking_code = $2
+AND user_id = $3
+AND status = 'CONFIRMED'
+RETURNING id, user_id, seat_id, booking_code, status, created_at
+`
+
+type CancelBookingParams struct {
+	ID          pgtype.UUID `json:"id"`
+	BookingCode string      `json:"booking_code"`
+	UserID      pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) CancelBooking(ctx context.Context, arg CancelBookingParams) (Booking, error) {
+	row := q.db.QueryRow(ctx, cancelBooking, arg.ID, arg.BookingCode, arg.UserID)
+	var i Booking
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.SeatID,
+		&i.BookingCode,
+		&i.Status,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createBooking = `-- name: CreateBooking :one
 INSERT INTO bookings (
     id,
@@ -71,10 +101,10 @@ const getActiveHoldByToken = `-- name: GetActiveHoldByToken :one
 SELECT id, user_id, seat_id, hold_token, created_at, expires_at, status, released_at
 FROM seat_holds
 WHERE seat_id = $1
-    AND user_id = $2
-    AND hold_token = $3
-    AND expires_at > CURRENT_TIMESTAMP
-LIMIT 1
+AND user_id = $2
+AND hold_token = $3
+AND status = 'ACTIVE'
+AND expires_at > CURRENT_TIMESTAMP
 `
 
 type GetActiveHoldByTokenParams struct {

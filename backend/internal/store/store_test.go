@@ -292,7 +292,7 @@ func TestConfirmBookingTx_HoldNotFound(t *testing.T) {
 	result, err := testStore.ConfirmBookingTx(context.Background(), confirmArg)
 	require.Error(t, err)
 	require.Empty(t, result)
-	require.ErrorIs(t, err, domain.ErrHoldNotFound)
+	require.ErrorIs(t, err, domain.ErrSeatHoldNotFound)
 }
 func TestConfirmBookingTx_ExpiredHold(t *testing.T) {
 	testStore := NewStore(testDB)
@@ -328,7 +328,7 @@ func TestConfirmBookingTx_ExpiredHold(t *testing.T) {
 		BookingCode: randomString(10),
 	}
 	booking, err := testStore.ConfirmBookingTx(context.Background(), confirmArg)
-	require.ErrorIs(t, err, domain.ErrHoldNotFound)
+	require.ErrorIs(t, err, domain.ErrSeatHoldNotFound)
 	require.Empty(t, booking)
 }
 func TestConfirmBookingTx_AlreadyConfirmed(t *testing.T) {
@@ -369,7 +369,7 @@ func TestConfirmBookingTx_AlreadyConfirmed(t *testing.T) {
 	bookingArg2.BookingID = randomUUID()
 	bookingArg2.BookingCode = randomString(10)
 	booking2, err := testStore.ConfirmBookingTx(context.Background(), bookingArg2)
-	require.ErrorIs(t, err, domain.ErrHoldNotFound)
+	require.ErrorIs(t, err, domain.ErrSeatAlreadyBooked)
 	require.Empty(t, booking2)
 }
 func TestConfirmBookingTx_Rollback(t *testing.T) {
@@ -509,4 +509,100 @@ func TestReleaseHoldTx_ExpiredHold(t *testing.T) {
 
 	require.Equal(t, "ACTIVE", storedHold.Status)
 	require.False(t, storedHold.ReleasedAt.Valid)
+}
+
+func TestCancelBooking_Success(t *testing.T){
+	testStore := NewStore(testDB)
+
+	user := randomUser(t)
+	flight := randomFlight(t)
+	seat := randomSeat(t, flight.ID)
+
+	// Create a confirmed booking for the seat
+	bookingArg := sqlcdb.CreateBookingParams{
+		ID:          randomUUID(),
+		UserID:      user.ID,
+		SeatID:      seat.ID,
+		BookingCode: randomString(10),
+		Status:      "CONFIRMED",
+	}
+	booking, err := testStore.CreateBooking(context.Background(), bookingArg)
+	require.NoError(t, err)
+	require.NotEmpty(t, booking)
+
+	cancelledBooking, err := testStore.CancelBookingTx(context.Background(), booking.ID, booking.BookingCode, user.ID)
+	require.NoError(t, err)
+	require.NotEmpty(t, cancelledBooking)
+	require.Equal(t, "CANCELLED", cancelledBooking.Status)
+}
+
+func TestCancelBooking_NotFound(t *testing.T){
+	testStore := NewStore(testDB)
+
+	nonExistentBookingID := randomUUID()
+	nonExistentBookingCode := randomString(10)
+	nonExistentUserID := randomUUID()
+
+	cancelledBooking, err := testStore.CancelBookingTx(context.Background(), nonExistentBookingID, nonExistentBookingCode, nonExistentUserID)
+	require.Error(t, err)
+	require.Empty(t, cancelledBooking)
+	require.ErrorIs(t, err, domain.ErrBookingNotFound)
+}
+
+func TestCancelBooking_AlreadyCancelled(t *testing.T){
+	testStore := NewStore(testDB)
+
+	user := randomUser(t)
+	flight := randomFlight(t)
+	seat := randomSeat(t, flight.ID)
+
+	// Create a confirmed booking for the seat
+	bookingArg := sqlcdb.CreateBookingParams{
+		ID:          randomUUID(),
+		UserID:      user.ID,
+		SeatID:      seat.ID,
+		BookingCode: randomString(10),
+		Status:      "CONFIRMED",
+	}
+	booking, err := testStore.CreateBooking(context.Background(), bookingArg)
+	require.NoError(t, err)
+	require.NotEmpty(t, booking)
+
+	// Cancel the booking
+	cancelledBooking, err := testStore.CancelBookingTx(context.Background(), booking.ID, booking.BookingCode, user.ID)
+	require.NoError(t, err)
+	require.NotEmpty(t, cancelledBooking)
+	require.Equal(t, "CANCELLED", cancelledBooking.Status)
+
+	// Attempt to cancel the already cancelled booking
+	cancelledBookingAgain, err := testStore.CancelBookingTx(context.Background(), booking.ID, booking.BookingCode, user.ID)
+	require.Error(t, err)
+	require.Empty(t, cancelledBookingAgain)
+	require.ErrorIs(t, err, domain.ErrBookingNotFound)
+}
+func TestCancelBooking_NotOwner(t *testing.T){
+	testStore := NewStore(testDB)
+
+	user1 := randomUser(t)
+	user2 := randomUser(t)
+	flight := randomFlight(t)
+	seat := randomSeat(t, flight.ID)
+
+	// Create a confirmed booking for the seat by user1
+	bookingArg := sqlcdb.CreateBookingParams{
+		ID:          randomUUID(),
+		UserID:      user1.ID,
+		SeatID:      seat.ID,
+		BookingCode: randomString(10),
+		Status:      "CONFIRMED",
+	}
+	booking, err := testStore.CreateBooking(context.Background(), bookingArg)
+	require.NoError(t, err)
+	require.NotEmpty(t, booking)
+
+	// Attempt to cancel the booking by user2 (not the owner)
+	cancelledBooking, err := testStore.CancelBookingTx(context.Background(), booking.ID, booking.BookingCode, user2.ID)
+	require.Error(t, err)
+	require.Empty(t, cancelledBooking)
+	require.ErrorIs(t, err, domain.ErrBookingNotFound)
 }
