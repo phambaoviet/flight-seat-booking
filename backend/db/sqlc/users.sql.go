@@ -12,26 +12,29 @@ import (
 )
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users(
+INSERT INTO users (
     id,
     name,
     email,
-    phone_number
+    phone_number,
+    password_hash
 )
 VALUES (
     $1,
     $2,
     $3,
-    $4
+    $4,
+    $5
 )
-RETURNING id, name, email, phone_number, created_at
+RETURNING id, name, email, phone_number, created_at, password_hash
 `
 
 type CreateUserParams struct {
-	ID          pgtype.UUID `json:"id"`
-	Name        string      `json:"name"`
-	Email       string      `json:"email"`
-	PhoneNumber string      `json:"phone_number"`
+	ID           pgtype.UUID `json:"id"`
+	Name         string      `json:"name"`
+	Email        string      `json:"email"`
+	PhoneNumber  string      `json:"phone_number"`
+	PasswordHash string      `json:"password_hash"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
@@ -40,6 +43,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		arg.Name,
 		arg.Email,
 		arg.PhoneNumber,
+		arg.PasswordHash,
 	)
 	var i User
 	err := row.Scan(
@@ -48,6 +52,27 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.Email,
 		&i.PhoneNumber,
 		&i.CreatedAt,
+		&i.PasswordHash,
+	)
+	return i, err
+}
+
+const getUserByEmail = `-- name: GetUserByEmail :one
+SELECT id, name, email, phone_number, created_at, password_hash
+FROM users
+WHERE email = $1
+`
+
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByEmail, email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.PhoneNumber,
+		&i.CreatedAt,
+		&i.PasswordHash,
 	)
 	return i, err
 }

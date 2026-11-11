@@ -9,4 +9,6 @@ var (
 	ErrHoldNotFound      = errors.New("hold not found")
 	ErrSeatHoldNotFound = errors.New("seat hold not found")
 	ErrBookingNotFound   = errors.New("booking not found")
+	ErrUserAlreadyExists = errors.New("user already exists")
+	ErrInValidPassword = errors.New("password must be at least 6 characters long")
 )

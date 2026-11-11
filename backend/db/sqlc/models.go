@@ -50,9 +50,10 @@ type SeatHold struct {
 }
 
 type User struct {
-	ID          pgtype.UUID        `json:"id"`
-	Name        string             `json:"name"`
-	Email       string             `json:"email"`
-	PhoneNumber string             `json:"phone_number"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	ID           pgtype.UUID        `json:"id"`
+	Name         string             `json:"name"`
+	Email        string             `json:"email"`
+	PhoneNumber  string             `json:"phone_number"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	PasswordHash string             `json:"password_hash"`
 }
