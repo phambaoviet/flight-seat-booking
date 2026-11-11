@@ -18,6 +18,14 @@ import (
 
 type mockAuthService struct {
 	RegisterUserFunc func(ctx context.Context, req service.RegisterUserParams) (sqlcdb.User, error)
+	LoginUserFunc    func(ctx context.Context, email, password string) (string, error)
+}
+
+func (m *mockAuthService) LoginUser(ctx context.Context, email, password string) (string, error) {
+    if m.LoginUserFunc != nil {
+        return m.LoginUserFunc(ctx, email, password)
+    }
+    return "", nil
 }
 
 func (m *mockAuthService) RegisterUser(ctx context.Context, req service.RegisterUserParams) (sqlcdb.User, error) {

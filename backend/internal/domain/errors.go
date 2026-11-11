@@ -11,4 +11,5 @@ var (
 	ErrBookingNotFound   = errors.New("booking not found")
 	ErrUserAlreadyExists = errors.New("user already exists")
 	ErrInValidPassword = errors.New("password must be at least 6 characters long")
+	ErrInvalidCredentials = errors.New("invalid email or password")
 )

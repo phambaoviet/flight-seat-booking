@@ -29,12 +29,25 @@ type AuthHandler struct {
 }
 type AuthService interface {
     RegisterUser(ctx context.Context, req service.RegisterUserParams) (sqlcdb.User, error)
+    LoginUser(ctx context.Context, email, password string) (string, error)
 }
 func NewAuthHandler(svc AuthService) *AuthHandler {
     return &AuthHandler{
         svc: svc,
     }
 }
+
+type LoginRequest struct {
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required"`
+}
+
+type LoginResponse struct {
+	AccessToken string `json:"access_token"`
+	TokenType  string `json:"token_type"`
+	ExpiresIn int64 `json:"expires_in"`
+}
+
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
