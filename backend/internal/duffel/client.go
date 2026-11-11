@@ -29,11 +29,7 @@ type DuffelOfferRequestData struct {
 	Offers []DuffelOffer `json:"offers"`
 }
 
-type DuffelOffer struct {
-	ID            string `json:"id"`
-	TotalAmount   string `json:"total_amount"`
-	TotalCurrency string `json:"total_currency"`
-}
+
 
 type DuffelErrorResponse struct {
 	Errors []DuffelError `json:"errors"`
@@ -85,6 +81,7 @@ func (c *Client) handleResponse(resp *http.Response) (*FlightOfferResponse, erro
         if err != nil {
             return nil, err
         }
+		
 
 		var flightOfferResp FlightOfferResponse
 		err = json.Unmarshal(body, &flightOfferResp)
@@ -124,6 +121,7 @@ func (c *Client) SearchFlights(ctx context.Context, req DuffelSearchParams) (*Fl
 	if err != nil {
 		return nil, err
 	}
+	httpReq = httpReq.WithContext(ctx)
 	resp, err := c.do(httpReq)
 	if err != nil {
 		return nil, err
