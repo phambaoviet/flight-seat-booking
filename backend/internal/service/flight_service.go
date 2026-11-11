@@ -24,6 +24,7 @@ type SearchFlightsRequest struct {
 	Adults      int
 	Children    int
 	Infants     int
+	CabinClass  string
 	TripType    TripType
 }
 
@@ -32,9 +33,10 @@ type SearchFlightsResponse struct {
 }
 
 type FlightOffer struct {
-	ID            string `json:"id"`
-	TotalAmount   string `json:"total_amount"`
-	TotalCurrency string `json:"total_currency"`
+	ID            string        `json:"id"`
+	TotalAmount   string        `json:"total_amount"`
+	TotalCurrency string        `json:"total_currency"`
+	Slices        []FlightSlice `json:"slices,omitempty"`
 }
 
 type FlightService interface {
@@ -50,6 +52,34 @@ type DuffelClient interface {
 
 type flightServiceImpl struct {
 	duffelClient DuffelClient
+}
+
+type FlightSlice struct {
+	Origin      ServiceAirport
+	Destination ServiceAirport
+	Segments    []FlightSegment
+}
+type ServiceCarrier struct {
+	IATA string
+	Name string
+}
+type ServiceAircraft struct {
+	IATA string
+	Name string
+}
+type ServiceAirport struct {
+	IATA string
+	Name string
+}
+type FlightSegment struct {
+	ID               string
+	Duration         string
+	MarketingCarrier ServiceCarrier
+	Aircraft         ServiceAircraft
+	Origin           ServiceAirport
+	Destination      ServiceAirport
+	Departure        string
+	Arrival          string
 }
 
 func NewFlightService(duffelClient DuffelClient) *flightServiceImpl {
@@ -76,6 +106,7 @@ func (s *flightServiceImpl) SearchFlights(ctx context.Context, req SearchFlights
 		Adults:      req.Adults,
 		Children:    req.Children,
 		Infants:     req.Infants,
+		CabinClass:  req.CabinClass,
 		TripType:    duffel.TripType(req.TripType),
 	}
 
@@ -90,14 +121,7 @@ func (s *flightServiceImpl) SearchFlights(ctx context.Context, req SearchFlights
 	}
 
 	// Map the Duffel response to the service response
-	flightOffers := make([]FlightOffer, 0, len(duffelResp.Data.Offers))
-	for _, offer := range duffelResp.Data.Offers {
-		flightOffers = append(flightOffers, FlightOffer{
-			ID:            offer.ID,
-			TotalAmount:   offer.TotalAmount,
-			TotalCurrency: offer.TotalCurrency,
-		})
-	}
+	flightOffers := mapDuffelOffers(duffelResp.Data.Offers)
 
 	// Return the response
 	return &SearchFlightsResponse{
@@ -200,4 +224,61 @@ func normalizeSearchFlightsRequest(req SearchFlightsRequest) SearchFlightsReques
 	req.Return = strings.TrimSpace(req.Return)
 
 	return req
+}
+func mapDuffelOffers(offers []duffel.DuffelOffer) []FlightOffer {
+	flightOffers := make([]FlightOffer, 0, len(offers))
+	for _, offer := range offers {
+		flightOffers = append(flightOffers, FlightOffer{
+			ID:            offer.ID,
+			TotalAmount:   offer.TotalAmount,
+			TotalCurrency: offer.TotalCurrency,
+			Slices:        mapDuffelSlices(offer.Slices),
+		})
+	}
+	return flightOffers
+}
+func mapDuffelSegments(segments []duffel.DuffelSegment) []FlightSegment {
+	flightSegments := make([]FlightSegment, 0, len(segments))
+	for _, segment := range segments {
+		flightSegments = append(flightSegments, FlightSegment{
+			ID:       segment.ID,
+			Duration: segment.Duration,
+			MarketingCarrier: ServiceCarrier{
+				IATA: segment.MarketingCarrier.IATA,
+				Name: segment.MarketingCarrier.Name,
+			},
+			Aircraft: ServiceAircraft{
+				IATA: segment.Aircraft.IATA,
+				Name: segment.Aircraft.Name,
+			},
+			Origin: ServiceAirport{
+				IATA: segment.Origin.IATA,
+				Name: segment.Origin.Name,
+			},
+			Destination: ServiceAirport{
+				IATA: segment.Destination.IATA,
+				Name: segment.Destination.Name,
+			},
+			Departure: segment.Departure,
+			Arrival:   segment.Arrival,
+		})
+	}
+	return flightSegments
+}
+func mapDuffelSlices(offers []duffel.DuffelOfferSlice) []FlightSlice {
+	flightSlices := make([]FlightSlice, 0, len(offers))
+	for _, slice := range offers {
+		flightSlices = append(flightSlices, FlightSlice{
+			Origin: ServiceAirport{
+				IATA: slice.Origin.IATA,
+				Name: slice.Origin.Name,
+			},
+			Destination: ServiceAirport{
+				IATA: slice.Destination.IATA,
+				Name: slice.Destination.Name,
+			},
+			Segments: mapDuffelSegments(slice.Segments),
+		})
+	}
+	return flightSlices
 }
