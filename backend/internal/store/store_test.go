@@ -606,3 +606,126 @@ func TestCancelBooking_NotOwner(t *testing.T){
 	require.Empty(t, cancelledBooking)
 	require.ErrorIs(t, err, domain.ErrBookingNotFound)
 }
+func TestCreateHoldTx_ConcurrentRequests(t *testing.T){
+	var unexpectedErrors []error
+	n := 20 // Number of concurrent goroutines to simulate
+	errs := make(chan error, n)
+	var wg sync.WaitGroup
+	testStore := NewStore(testDB)
+
+	// Barrier: Release all goroutines at the same time
+	start := make(chan struct{})
+	flight := randomFlight(t)
+	seat := randomSeat(t, flight.ID)
+	seatID := seat.ID // Use the same seat ID for all goroutines
+	userIDs := make([]pgtype.UUID, n)
+
+	// Generate random user IDs for each goroutine
+	for i := 0; i < n; i++ {
+		userIDs[i] = randomUser(t).ID
+	}
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(userID pgtype.UUID) {
+			defer wg.Done()
+			<-start // Wait for the signal to start
+
+			holdArg := sqlcdb.CreateSeatHoldParams{
+				ID:        randomUUID(),
+				UserID:    userID,
+				SeatID:    seatID,
+				HoldToken: randomUUID(),
+			}
+			_, err := testStore.CreateHoldTx(context.Background(), holdArg)
+
+			errs <- err
+
+		}(userIDs[i])
+	}
+
+	close(start) // Signal all goroutines to start
+	wg.Wait()    // Wait for all goroutines to finish
+	close(errs)  // Close the error channel
+
+	var successCount, seatAlreadyOnHoldCount int
+	
+	for err := range errs {
+		if err == nil {
+			successCount++
+		} else if errors.Is(err, domain.ErrSeatAlreadyOnHold) {
+			seatAlreadyOnHoldCount++
+		} else {
+			unexpectedErrors = append(unexpectedErrors, err)
+		}
+	}
+	
+	require.Empty(t, unexpectedErrors)
+
+	require.Equal(t, 1, successCount, "Exactly one goroutine should succeed in creating a hold")
+	require.Equal(t, n-1, seatAlreadyOnHoldCount, "The rest of the goroutines should receive ErrSeatAlreadyOnHold")
+	count, err := testStore.CountActiveHold(context.Background(), seatID)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), count)
+}
+
+func TestConfirmBookingTx_ConcurrentRequests(t *testing.T) {
+	n := 20 // Number of concurrent goroutines to simulate
+	errs := make(chan error, n)
+	var wg sync.WaitGroup
+	testStore := NewStore(testDB)
+
+	flight := randomFlight(t)
+	seat := randomSeat(t, flight.ID)
+	user := randomUser(t)
+
+	holdArg := sqlcdb.CreateSeatHoldParams{
+		ID:        randomUUID(),
+		UserID:    user.ID,
+		SeatID:    seat.ID,
+		HoldToken: randomUUID(),
+	}
+
+	result, err := testStore.CreateHoldTx(context.Background(), holdArg)
+	require.NoError(t, err)
+	require.NotEmpty(t, result)
+
+	start := make(chan struct{})
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start // Wait for the signal to start
+
+			confirmArg := ConfirmBookingTxParams{
+				BookingID:   randomUUID(),
+				UserID:      user.ID,
+				SeatID:      seat.ID,
+				HoldToken:   holdArg.HoldToken,
+				BookingCode: randomString(10),
+			}
+
+			_, err := testStore.ConfirmBookingTx(context.Background(), confirmArg)
+			errs <- err
+		}()
+	}
+
+	close(start) // Signal all goroutines to start
+	wg.Wait()    // Wait for all goroutines to finish
+	close(errs)  // Close the error channel
+
+	var successCount, seatAlreadyBookedCount int
+	var unexpectedErrors []error
+	for err := range errs {
+		if err == nil {
+			successCount++
+		} else if errors.Is(err, domain.ErrSeatAlreadyBooked) {
+			seatAlreadyBookedCount++
+		} else {
+			unexpectedErrors = append(unexpectedErrors, err)
+		}
+	}
+
+	require.Empty(t, unexpectedErrors)
+	require.Equal(t, 1, successCount)
+	require.Equal(t, n-1, seatAlreadyBookedCount)
+}
