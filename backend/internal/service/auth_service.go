@@ -14,6 +14,7 @@ import (
 
 type AuthService struct {
     store UserStore
+	tokenService TokenService
 }
 
 type RegisterUserParams struct {
@@ -23,10 +24,34 @@ type RegisterUserParams struct {
 	PhoneNumber string
 }
 
-func NewAuthService(store UserStore) *AuthService {
-    return &AuthService{store: store}
+func NewAuthService(store UserStore, tokenService TokenService) *AuthService {
+    return &AuthService{
+        store:        store,
+        tokenService: tokenService,
+    }
 }
 
+func (s *AuthService) LoginUser(ctx context.Context, email, password string) (string, error){
+	user, err := s.store.GetUserByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", domain.ErrInvalidCredentials
+		}
+		return "", err
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
+	if err != nil {
+		return "", domain.ErrInvalidCredentials
+	}
+
+	token, err := s.tokenService.Generate(user.ID.String())
+	if err != nil {
+		return "", err
+	}
+
+	return token, nil
+}
 
 func (s *AuthService) RegisterUser(ctx context.Context, req RegisterUserParams) (sqlcdb.User, error) {
 	// Check if the user already exists

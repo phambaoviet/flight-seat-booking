@@ -7,6 +7,7 @@ import (
 	"flight-booking/internal/domain"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
@@ -18,6 +19,26 @@ type MockUserStore struct {
     GetUserByEmailFunc func(ctx context.Context, email string) (sqlcdb.User, error)
     CreateUserFunc     func(ctx context.Context, user sqlcdb.CreateUserParams) (sqlcdb.User, error)
 }
+
+type MockTokenService struct {
+	GenerateFunc func(userID string) (string, error)
+	VerifyFunc   	  func(token string) (*Claims, error)
+}
+
+func (m *MockTokenService) Generate(userID string) (string, error) {
+	if m.GenerateFunc != nil {
+		return m.GenerateFunc(userID)
+	}
+	return "", nil
+}
+
+func (m *MockTokenService) Verify(token string) (*Claims, error) {
+	if m.VerifyFunc != nil {
+		return m.VerifyFunc(token)
+	}
+	return nil, nil
+}
+
 
 func (m *MockUserStore) CreateUser(ctx context.Context, user sqlcdb.CreateUserParams,) (sqlcdb.User, error) {
     if m.CreateUserFunc != nil {
@@ -50,7 +71,9 @@ func TestRegisterUser_Success(t *testing.T) {
 		},
 	}
 
-	svc := NewAuthService(mockStore)
+	mockTokenService := &MockTokenService{}
+
+	svc := NewAuthService(mockStore, mockTokenService)	
 	req := RegisterUserParams{
 		Name:        "John Doe",
 		Email:       "John@Example.com",
@@ -96,7 +119,9 @@ func TestRegisterUser_EmailAlreadyExists(t *testing.T) {
 		},
 	}
 
-	svc := NewAuthService(mockStore)
+	mockTokenService := &MockTokenService{}
+
+	svc := NewAuthService(mockStore, mockTokenService)	
 	req := RegisterUserParams{
 		Name:        "John Doe",
 		Email:       "John@Example.com",
@@ -122,7 +147,9 @@ func TestRegisterUser_DatabaseError(t *testing.T) {
 		},
 	}
 
-	svc := NewAuthService(mockStore)
+	mockTokenService := &MockTokenService{}
+
+	svc := NewAuthService(mockStore, mockTokenService)	
 	req := RegisterUserParams{
 		Name:        "John Doe",
 		Email:       "John@Example.com",
@@ -146,7 +173,9 @@ func TestRegisterUser_CreateUserError(t *testing.T) {
 		},
 	}
 
-	svc := NewAuthService(mockStore)
+	mockTokenService := &MockTokenService{}
+
+	svc := NewAuthService(mockStore, mockTokenService)	
 	req := RegisterUserParams{
 		Name:        "John Doe",
 		Email:       "John@Example.com",
@@ -157,5 +186,142 @@ func TestRegisterUser_CreateUserError(t *testing.T) {
 	_, err := svc.RegisterUser(context.Background(), req)
 	if err == nil || err.Error() != "create user error" {
 		t.Fatalf("expected create user error, got %v", err)
+	}
+}
+
+func TestLoginUser_Success(t *testing.T) {
+	const password = "password123"
+	
+	store := &MockUserStore{
+		GetUserByEmailFunc: func(ctx context.Context, email string) (sqlcdb.User, error) {
+			hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+			if err != nil {
+				t.Fatalf("failed to hash password: %v", err)
+			}
+			return sqlcdb.User{
+				ID:           pgtype.UUID{Bytes: uuid.New(), Valid: true},
+				Name:         "John Doe",
+				Email:        email,
+				PhoneNumber:  "1234567890",
+				PasswordHash: string(hash),
+			}, nil
+		},
+	}
+	
+	var capturedUserID string
+	tokenService := &MockTokenService{
+		GenerateFunc: func(userID string) (string, error) {
+			capturedUserID = userID
+			return "mocked_token", nil
+		},
+	}
+
+	svc := NewAuthService(store, tokenService)
+
+	token, err := svc.LoginUser(context.Background(), "john@example.com", password)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if token != "mocked_token" {
+		t.Errorf("expected token 'mocked_token', got %s", token)
+	}
+
+	if capturedUserID == "" {
+		t.Errorf("expected userID to be captured, but it was empty")
+	}
+}
+func TestLoginUser_InvalidPassword(t *testing.T) {
+	const password = "password123"
+	
+	store := &MockUserStore{
+		GetUserByEmailFunc: func(ctx context.Context, email string) (sqlcdb.User, error) {
+			hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+			if err != nil {
+				t.Fatalf("failed to hash password: %v", err)
+			}
+			return sqlcdb.User{
+				ID:           pgtype.UUID{Bytes: uuid.New(), Valid: true},
+				Name:         "John Doe",
+				Email:        email,
+				PhoneNumber:  "1234567890",
+				PasswordHash: string(hash),
+			}, nil
+		},
+	}
+	
+	tokenService := &MockTokenService{}
+
+	svc := NewAuthService(store, tokenService)
+
+	_, err := svc.LoginUser(context.Background(), "john@example.com", "wrongpassword")
+	if !errors.Is(err, domain.ErrInvalidCredentials) {
+		t.Fatalf("expected ErrInvalidCredentials, got %v", err)
+	}
+}
+
+func TestLoginUser_UserNotFound(t *testing.T) {
+	store := &MockUserStore{
+		GetUserByEmailFunc: func(ctx context.Context, email string) (sqlcdb.User, error) {
+			return sqlcdb.User{}, pgx.ErrNoRows
+		},
+	}
+	
+	tokenService := &MockTokenService{}
+
+	svc := NewAuthService(store, tokenService)
+
+	_, err := svc.LoginUser(context.Background(), "john@example", "password123")
+	if !errors.Is(err, domain.ErrInvalidCredentials) {
+		t.Fatalf("expected ErrInvalidCredentials, got %v", err)
+	}
+}
+func TestLoginUser_DatabaseError(t *testing.T) {
+	store := &MockUserStore{
+		GetUserByEmailFunc: func(ctx context.Context, email string) (sqlcdb.User, error) {
+			return sqlcdb.User{}, errors.New("database error")
+		},
+	}
+	
+	tokenService := &MockTokenService{}
+
+	svc := NewAuthService(store, tokenService)
+
+	_, err := svc.LoginUser(context.Background(), "john@example.com", "password123")
+	if err == nil || err.Error() != "database error" {
+		t.Fatalf("expected database error, got %v", err)
+	}
+}
+
+func TestLoginUser_TokenGenerationError(t *testing.T) {
+	const password = "password123"
+	
+	store := &MockUserStore{
+		GetUserByEmailFunc: func(ctx context.Context, email string) (sqlcdb.User, error) {
+			hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+			if err != nil {
+				t.Fatalf("failed to hash password: %v", err)
+			}
+			return sqlcdb.User{
+				ID:           pgtype.UUID{Bytes: uuid.New(), Valid: true},
+				Name:         "John Doe",
+				Email:        email,
+				PhoneNumber:  "1234567890",
+				PasswordHash: string(hash),
+			}, nil
+		},
+	}
+	
+	tokenService := &MockTokenService{
+		GenerateFunc: func(userID string) (string, error) {
+			return "", errors.New("token generation error")
+		},
+	}
+
+	svc := NewAuthService(store, tokenService)
+
+	_, err := svc.LoginUser(context.Background(), "john@example.com", password)
+	if err == nil || err.Error() != "token generation error" {
+		t.Fatalf("expected token generation error, got %v", err)
 	}
 }
