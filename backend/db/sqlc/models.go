@@ -39,12 +39,14 @@ type Seat struct {
 }
 
 type SeatHold struct {
-	ID        pgtype.UUID        `json:"id"`
-	UserID    pgtype.UUID        `json:"user_id"`
-	SeatID    pgtype.UUID        `json:"seat_id"`
-	HoldToken pgtype.UUID        `json:"hold_token"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	ID         pgtype.UUID        `json:"id"`
+	UserID     pgtype.UUID        `json:"user_id"`
+	SeatID     pgtype.UUID        `json:"seat_id"`
+	HoldToken  pgtype.UUID        `json:"hold_token"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+	Status     string             `json:"status"`
+	ReleasedAt pgtype.Timestamptz `json:"released_at"`
 }
 
 type User struct {

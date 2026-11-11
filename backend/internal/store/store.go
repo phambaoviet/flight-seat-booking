@@ -2,8 +2,12 @@ package store
 
 import (
 	"context"
+	"errors"
 	sqlcdb "flight-booking/db/sqlc"
+	"flight-booking/internal/domain"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -34,4 +38,19 @@ func (s *Store) execTx(ctx context.Context, fn func(*sqlcdb.Queries) error) erro
 	}
 
 	return tx.Commit(ctx)
+}
+func (s *Store) ReleaseHoldTx(ctx context.Context, holdID pgtype.UUID,) (sqlcdb.SeatHold, error) {
+	var result sqlcdb.SeatHold
+	err := s.execTx(ctx, func(q *sqlcdb.Queries) error {
+		var err error
+		result, err = q.ReleaseSeatHold(ctx, holdID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.ErrSeatHoldNotFound
+		}
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	return result, err
 }

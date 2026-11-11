@@ -13,6 +13,7 @@ func (s *Store) CreateHoldTx(ctx context.Context, arg sqlcdb.CreateSeatHoldParam
 	var result sqlcdb.SeatHold
 	err := s.execTx(ctx, func(q *sqlcdb.Queries) error {
 		var err error
+		// Lock the seat to prevent concurrent holds
 		_, err = q.LockSeat(ctx, arg.SeatID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -20,6 +21,14 @@ func (s *Store) CreateHoldTx(ctx context.Context, arg sqlcdb.CreateSeatHoldParam
 			}
 			return err
 		}
+
+		// Expire old seat holds for the seat
+		err = q.ExpireOldSeatHolds(ctx, arg.SeatID)
+		if err != nil {
+			return err
+		}
+
+		// Check if the seat is already booked
 		_, err = q.GetConfirmedBooking(ctx, arg.SeatID)
 		if err == nil {
 			return domain.ErrSeatAlreadyBooked
@@ -28,6 +37,7 @@ func (s *Store) CreateHoldTx(ctx context.Context, arg sqlcdb.CreateSeatHoldParam
 			return err
 		}
 
+		// Check if the seat is already on hold
 		_, err = q.GetActiveSeatHold(ctx, arg.SeatID)
 		if err == nil {
 			return domain.ErrSeatAlreadyOnHold
@@ -35,7 +45,8 @@ func (s *Store) CreateHoldTx(ctx context.Context, arg sqlcdb.CreateSeatHoldParam
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
-
+		
+		// Create the seat hold
 		result, err = q.CreateSeatHold(ctx, arg)
 		if err != nil {
 			return err

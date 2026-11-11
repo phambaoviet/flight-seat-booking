@@ -437,3 +437,76 @@ func TestConfirmBookingTx_Rollback(t *testing.T) {
 	require.NotEmpty(t, holdAfter)
 
 }
+func TestReleaseHoldTx_Success(t *testing.T) {
+	testStore := NewStore(testDB)
+	
+	user := randomUser(t)
+	flight := randomFlight(t)
+	seat := randomSeat(t, flight.ID)
+
+	holdArg := sqlcdb.CreateSeatHoldParams{
+		ID:        randomUUID(),
+		UserID:    user.ID,
+		SeatID:    seat.ID,
+		HoldToken: randomUUID(),
+	}
+
+	result, err := testStore.CreateHoldTx(context.Background(), holdArg)
+	require.NoError(t, err)
+	require.NotEmpty(t, result)
+
+	releasedHold, err := testStore.ReleaseHoldTx(context.Background(), holdArg.ID)
+	require.NoError(t, err)
+	require.NotEmpty(t, releasedHold)
+	require.Equal(t, holdArg.ID, releasedHold.ID)
+	require.Equal(t, "RELEASED", releasedHold.Status)
+	require.True(t, releasedHold.ReleasedAt.Valid)
+
+}
+
+func TestReleaseHoldTx_NotFound(t *testing.T) {
+	testStore := NewStore(testDB)
+
+	nonExistentHoldID := randomUUID()
+
+	releasedHold, err := testStore.ReleaseHoldTx(context.Background(), nonExistentHoldID)
+	require.Error(t, err)
+	require.Empty(t, releasedHold)
+	require.ErrorIs(t, err, domain.ErrSeatHoldNotFound)
+}
+func TestReleaseHoldTx_ExpiredHold(t *testing.T) {
+	testStore := NewStore(testDB)
+	
+	user := randomUser(t)
+	flight := randomFlight(t)
+	seat := randomSeat(t, flight.ID)
+
+	holdArg := sqlcdb.CreateSeatHoldParams{
+		ID:        randomUUID(),
+		UserID:    user.ID,
+		SeatID:    seat.ID,
+		HoldToken: randomUUID(),
+	}
+
+	result, err := testStore.CreateHoldTx(context.Background(), holdArg)
+	require.NoError(t, err)
+	require.NotEmpty(t, result)
+
+	// Manually expire the hold by updating the expires_at field
+	createdTime := time.Now().Add(-20 * time.Minute)
+	expiredTime := time.Now().Add(-10 * time.Minute)
+	_, err = testStore.db.Exec(context.Background(), "UPDATE seat_holds SET created_at = $1, expires_at = $2 WHERE id = $3", createdTime, expiredTime, holdArg.ID)
+	require.NoError(t, err)
+
+	releasedHold, err := testStore.ReleaseHoldTx(context.Background(), holdArg.ID)
+	require.Error(t, err)
+	require.Empty(t, releasedHold)
+	require.ErrorIs(t, err, domain.ErrSeatHoldNotFound)
+	
+	// Verify database state
+	storedHold, err := testStore.GetSeatHold(context.Background(), holdArg.ID)
+	require.NoError(t, err)
+
+	require.Equal(t, "ACTIVE", storedHold.Status)
+	require.False(t, storedHold.ReleasedAt.Valid)
+}

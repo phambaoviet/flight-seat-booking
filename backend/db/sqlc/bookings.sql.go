@@ -68,7 +68,7 @@ func (q *Queries) DeleteSeatHold(ctx context.Context, id pgtype.UUID) error {
 }
 
 const getActiveHoldByToken = `-- name: GetActiveHoldByToken :one
-SELECT id, user_id, seat_id, hold_token, created_at, expires_at
+SELECT id, user_id, seat_id, hold_token, created_at, expires_at, status, released_at
 FROM seat_holds
 WHERE seat_id = $1
     AND user_id = $2
@@ -93,6 +93,8 @@ func (q *Queries) GetActiveHoldByToken(ctx context.Context, arg GetActiveHoldByT
 		&i.HoldToken,
 		&i.CreatedAt,
 		&i.ExpiresAt,
+		&i.Status,
+		&i.ReleasedAt,
 	)
 	return i, err
 }

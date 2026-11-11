@@ -27,3 +27,25 @@ SELECT COUNT(*)
 FROM seat_holds
 WHERE seat_id = $1
 AND expires_at > CURRENT_TIMESTAMP;
+
+-- name: ExpireOldSeatHolds :exec
+UPDATE seat_holds
+SET status = 'EXPIRED'
+WHERE seat_id = $1
+AND expires_at <= CURRENT_TIMESTAMP
+AND status = 'ACTIVE';  
+
+-- name: ReleaseSeatHold :one
+UPDATE seat_holds
+SET 
+    status = 'RELEASED',
+    released_at = CURRENT_TIMESTAMP
+WHERE id = $1
+AND status = 'ACTIVE'
+AND expires_at > CURRENT_TIMESTAMP
+RETURNING *;
+
+-- name: GetSeatHold :one
+SELECT *
+FROM seat_holds
+WHERE id = $1;

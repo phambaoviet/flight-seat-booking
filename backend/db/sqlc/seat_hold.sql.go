@@ -28,7 +28,7 @@ func (q *Queries) CountActiveHold(ctx context.Context, seatID pgtype.UUID) (int6
 const createSeatHold = `-- name: CreateSeatHold :one
 INSERT INTO seat_holds (id, user_id, seat_id, hold_token, expires_at)
 VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP + INTERVAL '10 minutes')
-RETURNING id, user_id, seat_id, hold_token, created_at, expires_at
+RETURNING id, user_id, seat_id, hold_token, created_at, expires_at, status, released_at
 `
 
 type CreateSeatHoldParams struct {
@@ -53,12 +53,27 @@ func (q *Queries) CreateSeatHold(ctx context.Context, arg CreateSeatHoldParams) 
 		&i.HoldToken,
 		&i.CreatedAt,
 		&i.ExpiresAt,
+		&i.Status,
+		&i.ReleasedAt,
 	)
 	return i, err
 }
 
+const expireOldSeatHolds = `-- name: ExpireOldSeatHolds :exec
+UPDATE seat_holds
+SET status = 'EXPIRED'
+WHERE seat_id = $1
+AND expires_at <= CURRENT_TIMESTAMP
+AND status = 'ACTIVE'
+`
+
+func (q *Queries) ExpireOldSeatHolds(ctx context.Context, seatID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, expireOldSeatHolds, seatID)
+	return err
+}
+
 const getActiveSeatHold = `-- name: GetActiveSeatHold :one
-SELECT id, user_id, seat_id, hold_token, created_at, expires_at
+SELECT id, user_id, seat_id, hold_token, created_at, expires_at, status, released_at
 FROM seat_holds
 WHERE seat_id = $1
 AND expires_at > CURRENT_TIMESTAMP
@@ -75,6 +90,8 @@ func (q *Queries) GetActiveSeatHold(ctx context.Context, seatID pgtype.UUID) (Se
 		&i.HoldToken,
 		&i.CreatedAt,
 		&i.ExpiresAt,
+		&i.Status,
+		&i.ReleasedAt,
 	)
 	return i, err
 }
@@ -100,6 +117,28 @@ func (q *Queries) GetConfirmedBooking(ctx context.Context, seatID pgtype.UUID) (
 	return i, err
 }
 
+const getSeatHold = `-- name: GetSeatHold :one
+SELECT id, user_id, seat_id, hold_token, created_at, expires_at, status, released_at
+FROM seat_holds
+WHERE id = $1
+`
+
+func (q *Queries) GetSeatHold(ctx context.Context, id pgtype.UUID) (SeatHold, error) {
+	row := q.db.QueryRow(ctx, getSeatHold, id)
+	var i SeatHold
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.SeatID,
+		&i.HoldToken,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.Status,
+		&i.ReleasedAt,
+	)
+	return i, err
+}
+
 const lockSeat = `-- name: LockSeat :one
 SELECT id, flight_id, seat_number, seat_class, price, created_at 
 FROM seats
@@ -117,6 +156,33 @@ func (q *Queries) LockSeat(ctx context.Context, id pgtype.UUID) (Seat, error) {
 		&i.SeatClass,
 		&i.Price,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const releaseSeatHold = `-- name: ReleaseSeatHold :one
+UPDATE seat_holds
+SET 
+    status = 'RELEASED',
+    released_at = CURRENT_TIMESTAMP
+WHERE id = $1
+AND status = 'ACTIVE'
+AND expires_at > CURRENT_TIMESTAMP
+RETURNING id, user_id, seat_id, hold_token, created_at, expires_at, status, released_at
+`
+
+func (q *Queries) ReleaseSeatHold(ctx context.Context, id pgtype.UUID) (SeatHold, error) {
+	row := q.db.QueryRow(ctx, releaseSeatHold, id)
+	var i SeatHold
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.SeatID,
+		&i.HoldToken,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.Status,
+		&i.ReleasedAt,
 	)
 	return i, err
 }
