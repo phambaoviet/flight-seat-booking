@@ -27,7 +27,7 @@ type Querier interface {
 	GetConfirmedBooking(ctx context.Context, seatID pgtype.UUID) (Booking, error)
 	GetSeatHold(ctx context.Context, id pgtype.UUID) (SeatHold, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
-	LockSeat(ctx context.Context, id pgtype.UUID) (Seat, error)
+	LockSeatForHold(ctx context.Context, arg LockSeatForHoldParams) (Seat, error)
 	ReleaseSeatHold(ctx context.Context, id pgtype.UUID) (SeatHold, error)
 }
 

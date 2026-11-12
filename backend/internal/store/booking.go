@@ -18,13 +18,16 @@ type ConfirmBookingTxParams struct {
 	BookingCode string
 }
 
-func (s *Store) ConfirmBookingTx(ctx context.Context, arg ConfirmBookingTxParams) (sqlcdb.Booking, error) {
+func (s *Store) ConfirmBookingTx(ctx context.Context, arg ConfirmBookingTxParams, flightID pgtype.UUID) (sqlcdb.Booking, error) {
 	var result sqlcdb.Booking
 	
 	err := s.execTx(ctx, func(q *sqlcdb.Queries) error {
 		var err error
 		// Lock seat to prevent concurrent booking
-		_, err = q.LockSeat(ctx, arg.SeatID)
+		_, err = q.LockSeatForHold(ctx, sqlcdb.LockSeatForHoldParams{
+			ID:       arg.SeatID,
+			FlightID: flightID,
+		}) 
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return domain.ErrSeatNotFound

@@ -208,15 +208,21 @@ func (q *Queries) GetSeatHold(ctx context.Context, id pgtype.UUID) (SeatHold, er
 	return i, err
 }
 
-const lockSeat = `-- name: LockSeat :one
-SELECT id, flight_id, seat_number, seat_class, price, created_at 
+const lockSeatForHold = `-- name: LockSeatForHold :one
+SELECT id, flight_id, seat_number, seat_class, price, created_at
 FROM seats
 WHERE id = $1
+  AND flight_id = $2
 FOR UPDATE
 `
 
-func (q *Queries) LockSeat(ctx context.Context, id pgtype.UUID) (Seat, error) {
-	row := q.db.QueryRow(ctx, lockSeat, id)
+type LockSeatForHoldParams struct {
+	ID       pgtype.UUID `json:"id"`
+	FlightID pgtype.UUID `json:"flight_id"`
+}
+
+func (q *Queries) LockSeatForHold(ctx context.Context, arg LockSeatForHoldParams) (Seat, error) {
+	row := q.db.QueryRow(ctx, lockSeatForHold, arg.ID, arg.FlightID)
 	var i Seat
 	err := row.Scan(
 		&i.ID,

@@ -29,7 +29,7 @@ func TestCreateHoldTx(t *testing.T) {
 		HoldToken: randomUUID(),
 	}
 
-	result, err := testStore.CreateHoldTx(context.Background(), arg)
+	result, err := testStore.CreateHoldTx(context.Background(), arg, flight.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, result)
 
@@ -51,7 +51,7 @@ func TestCreateHoldTx_SeatNotFound(t *testing.T) {
 	}
 
 	// Use a non-existent seat ID
-	result, err := testStore.CreateHoldTx(context.Background(), arg)
+	result, err := testStore.CreateHoldTx(context.Background(), arg, randomUUID())
 	require.Error(t, err)
 	require.Empty(t, result)
 	require.ErrorIs(t, err, domain.ErrSeatNotFound)
@@ -82,7 +82,7 @@ func TestCreateHoldTx_SeatAlreadyBooked(t *testing.T) {
 		SeatID:    seat.ID,
 		HoldToken: randomUUID(),
 	}
-	result, err := testStore.CreateHoldTx(context.Background(), holdArg)
+	result, err := testStore.CreateHoldTx(context.Background(), holdArg, flight.ID)
 	require.Error(t, err)
 	require.Empty(t, result)
 	require.ErrorIs(t, err, domain.ErrSeatAlreadyBooked)
@@ -108,7 +108,7 @@ func TestCreateHoldTx_SeatAlreadyOnHold(t *testing.T) {
 		SeatID:    seat.ID,
 		HoldToken: randomUUID(),
 	}
-	hold1, err := testStore.CreateHoldTx(context.Background(), holdArg1)
+	hold1, err := testStore.CreateHoldTx(context.Background(), holdArg1, flight.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, hold1)
 
@@ -119,7 +119,7 @@ func TestCreateHoldTx_SeatAlreadyOnHold(t *testing.T) {
 		SeatID:    seat.ID,
 		HoldToken: randomUUID(),
 	}
-	result, err := testStore.CreateHoldTx(context.Background(), holdArg2)
+	result, err := testStore.CreateHoldTx(context.Background(), holdArg2, flight.ID)
 	require.Error(t, err)
 	require.Empty(t, result)
 	require.ErrorIs(t, err, domain.ErrSeatAlreadyOnHold)
@@ -146,7 +146,7 @@ func TestCreateHoldTx_ExpiredHold(t *testing.T) {
 		SeatID:    seat.ID,
 		HoldToken: randomUUID(),
 	}
-	hold1, err := testStore.CreateHoldTx(context.Background(), holdArg1)
+	hold1, err := testStore.CreateHoldTx(context.Background(), holdArg1, flight.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, hold1)
 
@@ -163,7 +163,7 @@ func TestCreateHoldTx_ExpiredHold(t *testing.T) {
 		SeatID:    seat.ID,
 		HoldToken: randomUUID(),
 	}
-	result, err := testStore.CreateHoldTx(context.Background(), holdArg2)
+	result, err := testStore.CreateHoldTx(context.Background(), holdArg2, flight.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, result)
 
@@ -197,7 +197,7 @@ func TestCreateHoldTx_ConcurrentHold(t *testing.T) {
 				SeatID:    seatID,
 				HoldToken: randomUUID(),
 			}
-			_, err := testStore.CreateHoldTx(context.Background(), holdArg)
+			_, err := testStore.CreateHoldTx(context.Background(), holdArg, flight.ID)
 
 			errs <- err
 
@@ -242,7 +242,7 @@ func TestConfirmBookingTx(t *testing.T) {
 		HoldToken: randomUUID(),
 	}
 
-	result, err := testStore.CreateHoldTx(context.Background(), holdArg)
+	result, err := testStore.CreateHoldTx(context.Background(), holdArg, flight.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, result)
 
@@ -254,7 +254,7 @@ func TestConfirmBookingTx(t *testing.T) {
 		BookingCode: randomString(10),
 	}
 
-	booking, err := testStore.ConfirmBookingTx(context.Background(), confirmArg)
+	booking, err := testStore.ConfirmBookingTx(context.Background(), confirmArg, flight.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, booking)
 
@@ -289,7 +289,7 @@ func TestConfirmBookingTx_HoldNotFound(t *testing.T) {
 		BookingCode: randomString(10),
 	}
 
-	result, err := testStore.ConfirmBookingTx(context.Background(), confirmArg)
+	result, err := testStore.ConfirmBookingTx(context.Background(), confirmArg, flight.ID)
 	require.Error(t, err)
 	require.Empty(t, result)
 	require.ErrorIs(t, err, domain.ErrSeatHoldNotFound)
@@ -327,7 +327,7 @@ func TestConfirmBookingTx_ExpiredHold(t *testing.T) {
 		HoldToken:   holdArg.HoldToken,
 		BookingCode: randomString(10),
 	}
-	booking, err := testStore.ConfirmBookingTx(context.Background(), confirmArg)
+	booking, err := testStore.ConfirmBookingTx(context.Background(), confirmArg, flight.ID)
 	require.ErrorIs(t, err, domain.ErrSeatHoldNotFound)
 	require.Empty(t, booking)
 }
@@ -348,7 +348,7 @@ func TestConfirmBookingTx_AlreadyConfirmed(t *testing.T) {
 		HoldToken: randomUUID(),
 	}
 
-	result, err := testStore.CreateHoldTx(context.Background(), holdArg)
+	result, err := testStore.CreateHoldTx(context.Background(), holdArg, flight.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, result)
 
@@ -360,7 +360,7 @@ func TestConfirmBookingTx_AlreadyConfirmed(t *testing.T) {
 		BookingID:   randomUUID(),
 		BookingCode: randomString(10),
 	}
-	booking1, err := testStore.ConfirmBookingTx(context.Background(), bookingArg1)
+	booking1, err := testStore.ConfirmBookingTx(context.Background(), bookingArg1, flight.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, booking1)
 
@@ -368,7 +368,7 @@ func TestConfirmBookingTx_AlreadyConfirmed(t *testing.T) {
 	bookingArg2 := bookingArg1
 	bookingArg2.BookingID = randomUUID()
 	bookingArg2.BookingCode = randomString(10)
-	booking2, err := testStore.ConfirmBookingTx(context.Background(), bookingArg2)
+	booking2, err := testStore.ConfirmBookingTx(context.Background(), bookingArg2, flight.ID)
 	require.ErrorIs(t, err, domain.ErrSeatAlreadyBooked)
 	require.Empty(t, booking2)
 }
@@ -389,7 +389,7 @@ func TestConfirmBookingTx_Rollback(t *testing.T) {
 		HoldToken: randomUUID(),
 	}
 
-	result, err := testStore.CreateHoldTx(context.Background(), holdArg)
+	result, err := testStore.CreateHoldTx(context.Background(), holdArg, flight.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, result)
 
@@ -421,7 +421,7 @@ func TestConfirmBookingTx_Rollback(t *testing.T) {
 		BookingID:   randomUUID(),
 		BookingCode: bookingCode,
 	}
-	booking, err := testStore.ConfirmBookingTx(context.Background(), confirmArg)
+	booking, err := testStore.ConfirmBookingTx(context.Background(), confirmArg, flight.ID)
 	require.Error(t, err)
 	require.Empty(t, booking)
 
@@ -451,7 +451,7 @@ func TestReleaseHoldTx_Success(t *testing.T) {
 		HoldToken: randomUUID(),
 	}
 
-	result, err := testStore.CreateHoldTx(context.Background(), holdArg)
+	result, err := testStore.CreateHoldTx(context.Background(), holdArg, flight.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, result)
 
@@ -488,7 +488,7 @@ func TestReleaseHoldTx_ExpiredHold(t *testing.T) {
 		HoldToken: randomUUID(),
 	}
 
-	result, err := testStore.CreateHoldTx(context.Background(), holdArg)
+	result, err := testStore.CreateHoldTx(context.Background(), holdArg, flight.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, result)
 
@@ -636,7 +636,7 @@ func TestCreateHoldTx_ConcurrentRequests(t *testing.T){
 				SeatID:    seatID,
 				HoldToken: randomUUID(),
 			}
-			_, err := testStore.CreateHoldTx(context.Background(), holdArg)
+			_, err := testStore.CreateHoldTx(context.Background(), holdArg, flight.ID)
 
 			errs <- err
 
@@ -685,7 +685,7 @@ func TestConfirmBookingTx_ConcurrentRequests(t *testing.T) {
 		HoldToken: randomUUID(),
 	}
 
-	result, err := testStore.CreateHoldTx(context.Background(), holdArg)
+	result, err := testStore.CreateHoldTx(context.Background(), holdArg, flight.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, result)
 
@@ -704,7 +704,7 @@ func TestConfirmBookingTx_ConcurrentRequests(t *testing.T) {
 				BookingCode: randomString(10),
 			}
 
-			_, err := testStore.ConfirmBookingTx(context.Background(), confirmArg)
+			_, err := testStore.ConfirmBookingTx(context.Background(), confirmArg, flight.ID)
 			errs <- err
 		}()
 	}

@@ -100,3 +100,43 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
+func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+	var req LoginRequest
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+
+	if req.Email == "" || strings.TrimSpace(req.Password) == "" {
+		http.Error(w, "Missing required fields", http.StatusBadRequest)
+		return
+	}
+
+	token, err := h.svc.LoginUser(r.Context(), req.Email, req.Password)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrInvalidCredentials):
+			http.Error(w, "Invalid email or password", http.StatusUnauthorized)
+		default:
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	resp := LoginResponse{
+		AccessToken: token,
+		TokenType:   "Bearer",
+		ExpiresIn:   900, // 15 minutes in seconds
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(resp)
+}
+

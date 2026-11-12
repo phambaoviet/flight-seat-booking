@@ -7,14 +7,18 @@ import (
 	"flight-booking/internal/domain"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func (s *Store) CreateHoldTx(ctx context.Context, arg sqlcdb.CreateSeatHoldParams) (sqlcdb.SeatHold, error) {
+func (s *Store) CreateHoldTx(ctx context.Context, arg sqlcdb.CreateSeatHoldParams, flightID pgtype.UUID) (sqlcdb.SeatHold, error) {
 	var result sqlcdb.SeatHold
 	err := s.execTx(ctx, func(q *sqlcdb.Queries) error {
 		var err error
 		// Lock the seat to prevent concurrent holds
-		_, err = q.LockSeat(ctx, arg.SeatID)
+		_, err = q.LockSeatForHold(ctx, sqlcdb.LockSeatForHoldParams{
+			ID:   arg.SeatID,
+			FlightID: flightID,
+		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return domain.ErrSeatNotFound

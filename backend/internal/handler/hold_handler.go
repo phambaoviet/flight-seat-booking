@@ -6,9 +6,11 @@ import (
 	"errors"
 	sqlcdb "flight-booking/db/sqlc"
 	"flight-booking/internal/domain"
+	"flight-booking/internal/middleware"
 	"flight-booking/internal/service"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -33,7 +35,6 @@ func NewHoldHandler(svc HoldService) *HoldHandler {
 
 type createHoldHTTPRequest struct {
 	SeatID string `json:"seat_id"`
-	UserID string `json:"user_id"`
 }
 
 func (h *HoldHandler) CreateHold(w http.ResponseWriter, r *http.Request) {
@@ -57,9 +58,15 @@ func (h *HoldHandler) CreateHold(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert the userID to pgtype.UUID
-	userID, err := uuid.Parse(req.UserID)
+	userIDStr, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	userID , err := uuid.Parse(userIDStr)
 	if err != nil {
-		http.Error(w, "Invalid user_id", http.StatusBadRequest)
+		http.Error(w, "Invalid token claims", http.StatusUnauthorized)
 		return
 	}
 	pgUserID := pgtype.UUID{
@@ -67,25 +74,47 @@ func (h *HoldHandler) CreateHold(w http.ResponseWriter, r *http.Request) {
 		Valid: true,
 	}
 
+	// Convert Flight ID to pgtype.UUID
+	flightIDStr := chi.URLParam(r, "flight_id")	
+	flightID, err := uuid.Parse(flightIDStr)
+	if err != nil {
+		http.Error(w, "Invalid flight_id", http.StatusBadRequest)
+		return
+	}
+	pgFlightID := pgtype.UUID{
+		Bytes: flightID,
+		Valid: true,
+	}
+
 	// Call the service to create a hold
 	createHoldReq := service.CreateHoldRequest{
 		UserID: pgUserID,
 		SeatID: pgSeatID,
+		FlightID: pgFlightID,
 	}
 	hold, err := h.HoldService.CreateHold(r.Context(), createHoldReq)
-	if errors.Is(err, domain.ErrSeatNotFound) {
-		http.Error(w, "Seat not found", http.StatusNotFound)
+	if errors.Is(err, domain.ErrSeatAlreadyOnHold) {
+		http.Error(w, "Seat is already held", http.StatusConflict)
 		return
 	} else if errors.Is(err, domain.ErrSeatAlreadyBooked) {
-		http.Error(w, "This seat has already been booked.", http.StatusConflict)
+		http.Error(w, "Seat is already booked", http.StatusConflict)
 		return
-	} else if errors.Is(err, domain.ErrSeatAlreadyOnHold) {
-		http.Error(w, "This seat is currently on hold. Please choose another seat.", http.StatusConflict)
+	} else if errors.Is(err, domain.ErrSeatNotFound) {
+		http.Error(w, "Seat not found", http.StatusNotFound)
 		return
 	} else if err != nil {
 		http.Error(w, "Failed to create hold", http.StatusInternalServerError)
 		return
-	}
+	}  else if !hold.ID.Valid || !hold.UserID.Valid || !hold.SeatID.Valid || !hold.HoldToken.Valid {
+		http.Error(w, "Invalid hold data", http.StatusInternalServerError)
+		return
+	} else if !hold.CreatedAt.Valid || !hold.ExpiresAt.Valid {
+		http.Error(w, "Invalid hold timestamps", http.StatusInternalServerError)
+		return
+	} else if hold.ExpiresAt.Time.Before(hold.CreatedAt.Time) {
+		http.Error(w, "Hold expiration time is before creation time", http.StatusInternalServerError)
+		return
+	} 
 	// Return the created hold as JSON response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

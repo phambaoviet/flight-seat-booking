@@ -1,7 +1,8 @@
--- name: LockSeat :one
-SELECT * 
+-- name: LockSeatForHold :one
+SELECT *
 FROM seats
 WHERE id = $1
+  AND flight_id = $2
 FOR UPDATE;
 
 -- name: GetConfirmedBooking :one

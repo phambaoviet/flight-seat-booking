@@ -14,11 +14,11 @@ import (
 )
 
 type mockHoldStore struct {
-	CreateHoldTxFunc func(ctx context.Context, arg sqlcdb.CreateSeatHoldParams) (sqlcdb.SeatHold, error)
+	CreateHoldTxFunc func(ctx context.Context, arg sqlcdb.CreateSeatHoldParams, flightID pgtype.UUID,) (sqlcdb.SeatHold, error)
 }
 
-func (m *mockHoldStore) CreateHoldTx(ctx context.Context, arg sqlcdb.CreateSeatHoldParams) (sqlcdb.SeatHold, error) {
-	return m.CreateHoldTxFunc(ctx, arg)
+func (m *mockHoldStore) CreateHoldTx(ctx context.Context, arg sqlcdb.CreateSeatHoldParams, flightID pgtype.UUID) (sqlcdb.SeatHold, error) {
+	return m.CreateHoldTxFunc(ctx, arg, flightID)
 }
 func randomUUID() pgtype.UUID {
 	return pgtype.UUID{
@@ -42,14 +42,16 @@ func TestCreateHold_Success(t *testing.T) {
 	req := CreateHoldRequest{
 		UserID: expectedHold.UserID,
 		SeatID: expectedHold.SeatID,
+		FlightID: randomUUID(),
 	}
 	// create a mock store that returns the expected hold
 	mockStore := &mockHoldStore{
-		CreateHoldTxFunc: func(ctx context.Context, gotArg sqlcdb.CreateSeatHoldParams) (sqlcdb.SeatHold, error) {
+		CreateHoldTxFunc: func(ctx context.Context, gotArg sqlcdb.CreateSeatHoldParams, flightID pgtype.UUID) (sqlcdb.SeatHold, error) {
 			assert.Equal(t, req.UserID, gotArg.UserID)
 			assert.Equal(t, req.SeatID, gotArg.SeatID)
 			assert.True(t, gotArg.ID.Valid)
 			assert.True(t, gotArg.HoldToken.Valid)
+			assert.Equal(t, req.FlightID, flightID)
 			return expectedHold, nil
 		},
 	}
@@ -65,14 +67,16 @@ func TestCreateHoldError(t *testing.T) {
 	req := CreateHoldRequest{
 		UserID: randomUUID(),
 		SeatID: randomUUID(),
+		FlightID: randomUUID(),
 	}
 	// create a mock store that returns an error
 	mockStore := &mockHoldStore{
-		CreateHoldTxFunc: func(ctx context.Context, gotArg sqlcdb.CreateSeatHoldParams) (sqlcdb.SeatHold, error) {
+		CreateHoldTxFunc: func(ctx context.Context, gotArg sqlcdb.CreateSeatHoldParams, flightID pgtype.UUID) (sqlcdb.SeatHold, error) {
 			assert.Equal(t, req.UserID, gotArg.UserID)
 			assert.Equal(t, req.SeatID, gotArg.SeatID)
 			assert.True(t, gotArg.ID.Valid)
 			assert.True(t, gotArg.HoldToken.Valid)
+			assert.Equal(t, req.FlightID, flightID)
 			return sqlcdb.SeatHold{}, expectedErr
 		},
 	}
@@ -83,4 +87,5 @@ func TestCreateHoldError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, expectedErr, err)
 	assert.Equal(t, sqlcdb.SeatHold{}, hold)
+	
 }
