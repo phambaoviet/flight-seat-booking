@@ -10,6 +10,7 @@ import (
 
 type HoldStore interface {
 	CreateHoldTx(ctx context.Context, arg sqlcdb.CreateSeatHoldParams, flightID pgtype.UUID) (sqlcdb.SeatHold, error)
+	ReleaseHoldTx(ctx context.Context, holdID pgtype.UUID, userID pgtype.UUID) (sqlcdb.SeatHold, error)
 }
 type HoldService struct {
 	store HoldStore
@@ -19,6 +20,10 @@ type CreateHoldRequest struct {
 	UserID pgtype.UUID
 	SeatID pgtype.UUID
 	FlightID pgtype.UUID
+}
+type ReleaseHoldRequest struct {
+	HoldID pgtype.UUID
+	UserID pgtype.UUID
 }
 
 func NewHoldService(store HoldStore) *HoldService {
@@ -34,6 +39,13 @@ func (s *HoldService) CreateHold(ctx context.Context, req CreateHoldRequest) (sq
 		HoldToken: pgtype.UUID{Bytes: uuid.New(), Valid: true},
 	}
 	hold, err := s.store.CreateHoldTx(ctx, arg, req.FlightID)
+	if err != nil {
+		return sqlcdb.SeatHold{}, err
+	}
+	return hold, nil
+}
+func (s *HoldService) ReleaseHold(ctx context.Context, holdID pgtype.UUID, userID pgtype.UUID) (sqlcdb.SeatHold, error) {
+	hold, err := s.store.ReleaseHoldTx(ctx, holdID, userID)
 	if err != nil {
 		return sqlcdb.SeatHold{}, err
 	}
