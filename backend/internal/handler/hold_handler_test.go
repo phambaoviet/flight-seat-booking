@@ -24,6 +24,16 @@ type mockHoldService struct {
 		ctx context.Context,
 		req service.CreateHoldRequest,
 	) (sqlcdb.SeatHold, error)
+	ReleaseHoldFunc func(
+		ctx context.Context,
+		holdID pgtype.UUID,
+		userID pgtype.UUID,
+	) (sqlcdb.SeatHold, error)
+
+}
+
+func (m *mockHoldService) ReleaseHold(ctx context.Context, holdID pgtype.UUID, userID pgtype.UUID) (sqlcdb.SeatHold, error) {
+    return m.ReleaseHoldFunc(ctx, holdID, userID)
 }
 
 func (m *mockHoldService) CreateHold(ctx context.Context, arg service.CreateHoldRequest) (sqlcdb.SeatHold, error) {
@@ -401,6 +411,260 @@ func TestCreateHold_InternalServerError(t *testing.T) {
 	router := chi.NewRouter()
     router.With(authMiddleware.Authenticate).
         Post("/api/v1/flights/{flight_id}/hold", holdHandler.CreateHold)
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.True(t, serviceCalled)
+}
+
+func TestCreateHold_Unauthorized(t *testing.T) {
+	serviceCalled := false
+	mockService := &mockHoldService{
+		CreateHoldFunc: func(ctx context.Context, req service.CreateHoldRequest) (sqlcdb.SeatHold, error) {
+			serviceCalled = true
+			return sqlcdb.SeatHold{}, nil
+		},
+	}
+
+	holdHandler := NewHoldHandler(mockService)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/flights/550e8400-e29b-41d4-a716-446655440001/hold", strings.NewReader(`{
+		"seat_id": "550e8400-e29b-41d4-a716-446655440000"
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	mockTokenService := &mockTokenService{
+		VerifyFunc: func(token string) (*service.Claims, error) {
+			return nil, domain.ErrInvalidToken
+		},
+	}
+	authMiddleware := middleware.NewAuthMiddleware(mockTokenService)
+	router := chi.NewRouter()
+	router.With(authMiddleware.Authenticate).
+		Post("/api/v1/flights/{flight_id}/hold", holdHandler.CreateHold)
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
+	assert.False(t, serviceCalled)
+}
+func TestReleaseHold_Success(t *testing.T) {
+	// Create a mock service that returns a successful release hold
+	userID := pgtype.UUID{
+		Bytes: uuid.New(),
+		Valid: true,
+	}
+	
+	seatID := pgtype.UUID{
+		Bytes: uuid.New(),
+		Valid: true,
+	}
+	
+	holdID := pgtype.UUID{
+		Bytes: uuid.New(),
+		Valid: true,
+	}
+	createdAt := time.Now()
+	expiresAt := createdAt.Add(10 * time.Minute)
+	serviceCalled := false
+	mockService := &mockHoldService{
+		CreateHoldFunc: func(ctx context.Context, req service.CreateHoldRequest) (sqlcdb.SeatHold, error) {
+			serviceCalled = true
+			return sqlcdb.SeatHold{ ID:        holdID,
+					UserID:    userID,
+					SeatID:    seatID,
+					HoldToken: pgtype.UUID{Bytes: uuid.New(), Valid: true},
+					CreatedAt: pgtype.Timestamptz{Time: createdAt, Valid: true},
+					ExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true},
+					}, nil
+				
+		},
+	}
+
+	holdHandler := NewHoldHandler(mockService)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/flights/550e8400-e29b-41d4-a716-446655440001/hold", strings.NewReader(`{
+		"seat_id": "550e8400-e29b-41d4-a716-446655440000"
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer valid-test-token")
+	rr := httptest.NewRecorder()
+
+	mockTokenService := &mockTokenService{
+		VerifyFunc: func(token string) (*service.Claims, error) {
+			return &service.Claims{
+				UserID: "123e4567-e89b-12d3-a456-426614174000",
+			}, nil
+		},
+	}
+	authMiddleware := middleware.NewAuthMiddleware(mockTokenService)
+	router := chi.NewRouter()
+	router.With(authMiddleware.Authenticate).
+		Post("/api/v1/flights/{flight_id}/hold", holdHandler.CreateHold)
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusCreated, rr.Code)
+	assert.True(t, serviceCalled)
+}
+
+func TestReleaseHold_InvalidJSON(t *testing.T) {
+	invalidJSON := `{"hold_id": "invalid-uuid"}`
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/holds/release",
+		strings.NewReader(invalidJSON),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer valid-test-token")
+
+	rr := httptest.NewRecorder()
+	serviceCalled := false
+
+	mockSvc := &mockHoldService{
+		ReleaseHoldFunc: func(
+			ctx context.Context,
+			holdID pgtype.UUID,
+			userID pgtype.UUID,
+		) (sqlcdb.SeatHold, error) {
+			serviceCalled = true
+			return sqlcdb.SeatHold{}, nil
+		},
+	}
+
+	holdHandler := NewHoldHandler(mockSvc)
+	mockTokenService := &mockTokenService{
+		VerifyFunc: func(token string) (*service.Claims, error) {
+			return &service.Claims{
+				UserID: "123e4567-e89b-12d3-a456-426614174000",
+			}, nil
+		},
+	}
+	authMiddleware := middleware.NewAuthMiddleware(mockTokenService)
+
+	router := chi.NewRouter()
+	router.With(authMiddleware.Authenticate).
+		Post("/api/v1/holds/release", holdHandler.ReleaseHold)
+
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.False(t, serviceCalled)
+}
+
+func TestReleaseHold_InvalidHoldID(t *testing.T) {
+	invalidJSON := `{"hold_id": "invalid-uuid"}`
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/holds/release",
+		strings.NewReader(invalidJSON),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer valid-test-token")
+
+	rr := httptest.NewRecorder()
+	serviceCalled := false
+
+	mockSvc := &mockHoldService{
+		ReleaseHoldFunc: func(
+			ctx context.Context,
+			holdID pgtype.UUID,
+			userID pgtype.UUID,
+		) (sqlcdb.SeatHold, error) {
+			serviceCalled = true
+			return sqlcdb.SeatHold{}, nil
+		},
+	}
+
+	holdHandler := NewHoldHandler(mockSvc)
+	mockTokenService := &mockTokenService{
+		VerifyFunc: func(token string) (*service.Claims, error) {
+			return &service.Claims{UserID: "123e4567-e89b-12d3-a456-426614174000"}, nil
+		},
+	}
+	authMiddleware := middleware.NewAuthMiddleware(mockTokenService)
+
+	router := chi.NewRouter()
+	router.With(authMiddleware.Authenticate).
+		Post("/api/v1/holds/release", holdHandler.ReleaseHold)
+
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.False(t, serviceCalled)
+}
+func TestReleaseHold_NotFound(t *testing.T) {
+	serviceCalled := false
+	mockSvc := &mockHoldService{
+		ReleaseHoldFunc: func(
+			ctx context.Context,
+			holdID pgtype.UUID,
+			userID pgtype.UUID,
+		) (sqlcdb.SeatHold, error) {
+			serviceCalled = true
+			return sqlcdb.SeatHold{}, domain.ErrSeatHoldNotFound
+		},
+	}
+
+	holdHandler := NewHoldHandler(mockSvc)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/holds/release", strings.NewReader(`{
+		"hold_id": "550e8400-e29b-41d4-a716-446655440000"
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer valid-test-token")
+	rr := httptest.NewRecorder()
+
+	mockTokenService := &mockTokenService{
+		VerifyFunc: func(token string) (*service.Claims, error) {
+			return &service.Claims{
+				UserID: "123e4567-e89b-12d3-a456-426614174000",
+			}, nil
+		},
+	}
+	authMiddleware := middleware.NewAuthMiddleware(mockTokenService)
+	router := chi.NewRouter()
+	router.With(authMiddleware.Authenticate).
+		Post("/api/v1/holds/release", holdHandler.ReleaseHold)
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+	assert.True(t, serviceCalled)
+}
+func TestReleaseHold_InternalError(t *testing.T) {
+	serviceCalled := false
+	mockSvc := &mockHoldService{
+		ReleaseHoldFunc: func(
+			ctx context.Context,
+			holdID pgtype.UUID,
+			userID pgtype.UUID,
+		) (sqlcdb.SeatHold, error) {
+			serviceCalled = true
+			return sqlcdb.SeatHold{}, assert.AnError
+		},
+	}
+
+	holdHandler := NewHoldHandler(mockSvc)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/holds/release", strings.NewReader(`{
+		"hold_id": "550e8400-e29b-41d4-a716-446655440000"
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer valid-test-token")
+	rr := httptest.NewRecorder()
+
+	mockTokenService := &mockTokenService{
+		VerifyFunc: func(token string) (*service.Claims, error) {
+			return &service.Claims{
+				UserID: "123e4567-e89b-12d3-a456-426614174000",
+			}, nil
+		},
+	}
+	authMiddleware := middleware.NewAuthMiddleware(mockTokenService)
+	router := chi.NewRouter()
+	router.With(authMiddleware.Authenticate).
+		Post("/api/v1/holds/release", holdHandler.ReleaseHold)
 	router.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)

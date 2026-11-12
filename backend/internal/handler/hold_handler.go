@@ -21,10 +21,16 @@ type HoldService interface {
 		ctx context.Context,
 		req service.CreateHoldRequest,
 	) (sqlcdb.SeatHold, error)
+	ReleaseHold(
+		ctx context.Context,
+		holdID pgtype.UUID,
+		userID pgtype.UUID,
+	) (sqlcdb.SeatHold, error)
 }
 
 type HoldHandler struct {
 	HoldService HoldService
+	
 }
 
 func NewHoldHandler(svc HoldService) *HoldHandler {
@@ -37,6 +43,9 @@ type createHoldHTTPRequest struct {
 	SeatID string `json:"seat_id"`
 }
 
+type releaseHoldHTTPRequest struct {
+    HoldID string `json:"hold_id"`
+}
 func (h *HoldHandler) CreateHold(w http.ResponseWriter, r *http.Request) {
 	var req createHoldHTTPRequest
 
@@ -120,4 +129,56 @@ func (h *HoldHandler) CreateHold(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(hold)
 
+}
+
+func (h *HoldHandler) ReleaseHold(w http.ResponseWriter, r *http.Request) {
+	var req releaseHoldHTTPRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	holdID, err := uuid.Parse(req.HoldID)
+	if err != nil {
+		http.Error(w, "Invalid hold_id", http.StatusBadRequest)
+		return
+	}
+	pgHoldID := pgtype.UUID{
+		Bytes: holdID,
+		Valid: true,
+	}
+
+	userIDStr, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		http.Error(w, "Invalid token claims", http.StatusUnauthorized)
+		return
+	}
+	pgUserID := pgtype.UUID{
+		Bytes: userID,
+		Valid: true,
+	}
+
+	releasedHold, err := h.HoldService.ReleaseHold(r.Context(), pgHoldID, pgUserID)
+	if errors.Is(err, domain.ErrSeatHoldNotFound) {
+		http.Error(w, "Seat hold not found", http.StatusNotFound)
+		return
+	}
+	if errors.Is(err, domain.ErrUnauthorizedRelease) {
+		http.Error(w, "Unauthorized to release this hold", http.StatusForbidden)
+		return
+	}
+	if err != nil {
+		http.Error(w, "Failed to release hold", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(releasedHold)
 }
