@@ -237,17 +237,23 @@ func (q *Queries) LockSeatForHold(ctx context.Context, arg LockSeatForHoldParams
 
 const releaseSeatHold = `-- name: ReleaseSeatHold :one
 UPDATE seat_holds
-SET 
+SET
     status = 'RELEASED',
     released_at = CURRENT_TIMESTAMP
 WHERE id = $1
+AND user_id = $2
 AND status = 'ACTIVE'
 AND expires_at > CURRENT_TIMESTAMP
 RETURNING id, user_id, seat_id, hold_token, created_at, expires_at, status, released_at
 `
 
-func (q *Queries) ReleaseSeatHold(ctx context.Context, id pgtype.UUID) (SeatHold, error) {
-	row := q.db.QueryRow(ctx, releaseSeatHold, id)
+type ReleaseSeatHoldParams struct {
+	ID     pgtype.UUID `json:"id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) ReleaseSeatHold(ctx context.Context, arg ReleaseSeatHoldParams) (SeatHold, error) {
+	row := q.db.QueryRow(ctx, releaseSeatHold, arg.ID, arg.UserID)
 	var i SeatHold
 	err := row.Scan(
 		&i.ID,

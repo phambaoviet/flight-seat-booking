@@ -28,7 +28,7 @@ type Querier interface {
 	GetSeatHold(ctx context.Context, id pgtype.UUID) (SeatHold, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	LockSeatForHold(ctx context.Context, arg LockSeatForHoldParams) (Seat, error)
-	ReleaseSeatHold(ctx context.Context, id pgtype.UUID) (SeatHold, error)
+	ReleaseSeatHold(ctx context.Context, arg ReleaseSeatHoldParams) (SeatHold, error)
 }
 
 var _ Querier = (*Queries)(nil)

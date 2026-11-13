@@ -15,4 +15,6 @@ var (
 	ErrTokenExpired = errors.New("token has expired")
 	ErrInvalidToken = errors.New("invalid token")
 	ErrSeatAlreadyHeld = errors.New("seat is already held")
+	ErrUnauthorizedRelease = errors.New("unauthorized to release this hold")
+	ErrHoldTokenMismatch = errors.New("hold token does not match")
 )

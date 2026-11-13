@@ -19,7 +19,7 @@ type Claims struct {
 type JWTTokenService struct {
 	secret    []byte
 	expiresIn time.Duration
-}
+}	
 
 func (s *JWTTokenService) Generate(userID string) (string, error) {
 	claims := &Claims{
