@@ -4,11 +4,12 @@ import (
 	"context"
 	sqlcdb "flight-booking/db/sqlc"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"

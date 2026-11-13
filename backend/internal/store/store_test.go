@@ -246,7 +246,7 @@ func TestConfirmBookingTx(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, result)
 
-	confirmArg := ConfirmBookingTxParams{
+	confirmArg := domain.ConfirmBookingParams{
 		BookingID:   randomUUID(),
 		UserID:      user.ID,
 		SeatID:      seat.ID,
@@ -281,7 +281,7 @@ func TestConfirmBookingTx_HoldNotFound(t *testing.T) {
 	seat := randomSeat(t, flight.ID)
 
 	// Call ConfirmBookingTx with a non-existent hold token
-	confirmArg := ConfirmBookingTxParams{
+	confirmArg := domain.ConfirmBookingParams{
 		BookingID:   randomUUID(),
 		UserID:      user.ID,
 		SeatID:      seat.ID,
@@ -320,7 +320,7 @@ func TestConfirmBookingTx_ExpiredHold(t *testing.T) {
 	require.NoError(t, err)
 
 	// Call ConfirmBooking
-	confirmArg := ConfirmBookingTxParams{
+	confirmArg := domain.ConfirmBookingParams{
 		BookingID:   randomUUID(),
 		UserID:      user.ID,
 		SeatID:      seat.ID,
@@ -353,7 +353,7 @@ func TestConfirmBookingTx_AlreadyConfirmed(t *testing.T) {
 	require.NotEmpty(t, result)
 
 	// Create a first confirmBooking with success
-	bookingArg1 := ConfirmBookingTxParams{
+	bookingArg1 := domain.ConfirmBookingParams{
 		SeatID:      seat.ID,
 		UserID:      user.ID,
 		HoldToken:   holdArg.HoldToken,
@@ -414,7 +414,7 @@ func TestConfirmBookingTx_Rollback(t *testing.T) {
 	require.NoError(t, err)
 
 	// Try to confirm the booking with a duplicate booking code
-	confirmArg := ConfirmBookingTxParams{
+	confirmArg := domain.ConfirmBookingParams{
 		SeatID:      seat.ID,
 		UserID:      user.ID,
 		HoldToken:   holdArg.HoldToken,
@@ -439,7 +439,7 @@ func TestConfirmBookingTx_Rollback(t *testing.T) {
 }
 func TestReleaseHoldTx_Success(t *testing.T) {
 	testStore := NewStore(testDB)
-	
+
 	user := randomUser(t)
 	flight := randomFlight(t)
 	seat := randomSeat(t, flight.ID)
@@ -455,7 +455,7 @@ func TestReleaseHoldTx_Success(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, result)
 
-	releasedHold, err := testStore.ReleaseHoldTx(context.Background(), holdArg.ID)
+	releasedHold, err := testStore.ReleaseHoldTx(context.Background(), holdArg.ID, user.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, releasedHold)
 	require.Equal(t, holdArg.ID, releasedHold.ID)
@@ -469,14 +469,14 @@ func TestReleaseHoldTx_NotFound(t *testing.T) {
 
 	nonExistentHoldID := randomUUID()
 
-	releasedHold, err := testStore.ReleaseHoldTx(context.Background(), nonExistentHoldID)
+	releasedHold, err := testStore.ReleaseHoldTx(context.Background(), nonExistentHoldID, randomUUID())
 	require.Error(t, err)
 	require.Empty(t, releasedHold)
 	require.ErrorIs(t, err, domain.ErrSeatHoldNotFound)
 }
 func TestReleaseHoldTx_ExpiredHold(t *testing.T) {
 	testStore := NewStore(testDB)
-	
+
 	user := randomUser(t)
 	flight := randomFlight(t)
 	seat := randomSeat(t, flight.ID)
@@ -498,11 +498,11 @@ func TestReleaseHoldTx_ExpiredHold(t *testing.T) {
 	_, err = testStore.db.Exec(context.Background(), "UPDATE seat_holds SET created_at = $1, expires_at = $2 WHERE id = $3", createdTime, expiredTime, holdArg.ID)
 	require.NoError(t, err)
 
-	releasedHold, err := testStore.ReleaseHoldTx(context.Background(), holdArg.ID)
+	releasedHold, err := testStore.ReleaseHoldTx(context.Background(), holdArg.ID, user.ID)
 	require.Error(t, err)
 	require.Empty(t, releasedHold)
 	require.ErrorIs(t, err, domain.ErrSeatHoldNotFound)
-	
+
 	// Verify database state
 	storedHold, err := testStore.GetSeatHold(context.Background(), holdArg.ID)
 	require.NoError(t, err)
@@ -511,7 +511,7 @@ func TestReleaseHoldTx_ExpiredHold(t *testing.T) {
 	require.False(t, storedHold.ReleasedAt.Valid)
 }
 
-func TestCancelBooking_Success(t *testing.T){
+func TestCancelBooking_Success(t *testing.T) {
 	testStore := NewStore(testDB)
 
 	user := randomUser(t)
@@ -536,7 +536,7 @@ func TestCancelBooking_Success(t *testing.T){
 	require.Equal(t, "CANCELLED", cancelledBooking.Status)
 }
 
-func TestCancelBooking_NotFound(t *testing.T){
+func TestCancelBooking_NotFound(t *testing.T) {
 	testStore := NewStore(testDB)
 
 	nonExistentBookingID := randomUUID()
@@ -549,7 +549,7 @@ func TestCancelBooking_NotFound(t *testing.T){
 	require.ErrorIs(t, err, domain.ErrBookingNotFound)
 }
 
-func TestCancelBooking_AlreadyCancelled(t *testing.T){
+func TestCancelBooking_AlreadyCancelled(t *testing.T) {
 	testStore := NewStore(testDB)
 
 	user := randomUser(t)
@@ -580,7 +580,7 @@ func TestCancelBooking_AlreadyCancelled(t *testing.T){
 	require.Empty(t, cancelledBookingAgain)
 	require.ErrorIs(t, err, domain.ErrBookingNotFound)
 }
-func TestCancelBooking_NotOwner(t *testing.T){
+func TestCancelBooking_NotOwner(t *testing.T) {
 	testStore := NewStore(testDB)
 
 	user1 := randomUser(t)
@@ -606,7 +606,7 @@ func TestCancelBooking_NotOwner(t *testing.T){
 	require.Empty(t, cancelledBooking)
 	require.ErrorIs(t, err, domain.ErrBookingNotFound)
 }
-func TestCreateHoldTx_ConcurrentRequests(t *testing.T){
+func TestCreateHoldTx_ConcurrentRequests(t *testing.T) {
 	var unexpectedErrors []error
 	n := 20 // Number of concurrent goroutines to simulate
 	errs := make(chan error, n)
@@ -648,7 +648,7 @@ func TestCreateHoldTx_ConcurrentRequests(t *testing.T){
 	close(errs)  // Close the error channel
 
 	var successCount, seatAlreadyOnHoldCount int
-	
+
 	for err := range errs {
 		if err == nil {
 			successCount++
@@ -658,7 +658,7 @@ func TestCreateHoldTx_ConcurrentRequests(t *testing.T){
 			unexpectedErrors = append(unexpectedErrors, err)
 		}
 	}
-	
+
 	require.Empty(t, unexpectedErrors)
 
 	require.Equal(t, 1, successCount, "Exactly one goroutine should succeed in creating a hold")
@@ -696,7 +696,7 @@ func TestConfirmBookingTx_ConcurrentRequests(t *testing.T) {
 			defer wg.Done()
 			<-start // Wait for the signal to start
 
-			confirmArg := ConfirmBookingTxParams{
+			confirmArg := domain.ConfirmBookingParams{
 				BookingID:   randomUUID(),
 				UserID:      user.ID,
 				SeatID:      seat.ID,
@@ -728,4 +728,35 @@ func TestConfirmBookingTx_ConcurrentRequests(t *testing.T) {
 	require.Empty(t, unexpectedErrors)
 	require.Equal(t, 1, successCount)
 	require.Equal(t, n-1, seatAlreadyBookedCount)
+}
+
+func TestReleaseHoldTx_NotOwner(t *testing.T) {
+	testStore := NewStore(testDB)
+
+	user1 := randomUser(t)
+	user2 := randomUser(t)
+	flight := randomFlight(t)
+	seat := randomSeat(t, flight.ID)
+
+	holdArg := sqlcdb.CreateSeatHoldParams{
+		ID:        randomUUID(),
+		UserID:    user1.ID,
+		SeatID:    seat.ID,
+		HoldToken: randomUUID(),
+	}
+
+	result, err := testStore.CreateHoldTx(context.Background(), holdArg, flight.ID)
+	require.NoError(t, err)
+	require.NotEmpty(t, result)
+
+	releasedHold, err := testStore.ReleaseHoldTx(context.Background(), holdArg.ID, user2.ID)
+	require.Error(t, err)
+	require.Empty(t, releasedHold)
+	require.ErrorIs(t, err, domain.ErrSeatHoldNotFound)
+
+	// Verify that the hold is still active in the database
+	storedHold, err := testStore.GetSeatHold(context.Background(), holdArg.ID)
+	require.NoError(t, err)
+	require.NotEmpty(t, storedHold)
+	require.Equal(t, "ACTIVE", storedHold.Status)
 }

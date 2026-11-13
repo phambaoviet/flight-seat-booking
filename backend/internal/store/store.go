@@ -39,11 +39,14 @@ func (s *Store) execTx(ctx context.Context, fn func(*sqlcdb.Queries) error) erro
 
 	return tx.Commit(ctx)
 }
-func (s *Store) ReleaseHoldTx(ctx context.Context, holdID pgtype.UUID,) (sqlcdb.SeatHold, error) {
+func (s *Store) ReleaseHoldTx(ctx context.Context, holdID pgtype.UUID, userID pgtype.UUID)  (sqlcdb.SeatHold, error) {
 	var result sqlcdb.SeatHold
 	err := s.execTx(ctx, func(q *sqlcdb.Queries) error {
 		var err error
-		result, err = q.ReleaseSeatHold(ctx, holdID)
+		result, err = q.ReleaseSeatHold(ctx, sqlcdb.ReleaseSeatHoldParams{
+			ID:     holdID,
+			UserID: userID,
+		})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.ErrSeatHoldNotFound
 		}

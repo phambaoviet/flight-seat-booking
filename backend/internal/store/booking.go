@@ -10,15 +10,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type ConfirmBookingTxParams struct {
-	SeatID      pgtype.UUID
-	UserID      pgtype.UUID
-	HoldToken   pgtype.UUID
-	BookingID   pgtype.UUID
-	BookingCode string
-}
 
-func (s *Store) ConfirmBookingTx(ctx context.Context, arg ConfirmBookingTxParams, flightID pgtype.UUID) (sqlcdb.Booking, error) {
+func (s *Store) ConfirmBookingTx(ctx context.Context, arg domain.ConfirmBookingParams, flightID pgtype.UUID) (sqlcdb.Booking, error) {
 	var result sqlcdb.Booking
 	
 	err := s.execTx(ctx, func(q *sqlcdb.Queries) error {
