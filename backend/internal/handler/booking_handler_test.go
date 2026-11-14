@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	sqlcdb "flight-booking/db/sqlc"
 	"flight-booking/internal/domain"
 	"flight-booking/internal/middleware"
@@ -18,6 +19,7 @@ import (
 )
 type MockBookingService struct {
 	ConfirmBookingFunc func(ctx context.Context, req service.ConfirmBookingRequest) (sqlcdb.Booking, error)
+	CancelBookingFunc func(ctx context.Context, req service.CancelBookingRequest) (sqlcdb.Booking, error)
 }
 
 func (m *MockBookingService) ConfirmBooking(ctx context.Context, req service.ConfirmBookingRequest) (sqlcdb.Booking, error) {
@@ -27,7 +29,14 @@ func (m *MockBookingService) ConfirmBooking(ctx context.Context, req service.Con
 
     panic("ConfirmBookingFunc is not configured")
 }
+func (m *MockBookingService) CancelBooking(ctx context.Context, req service.CancelBookingRequest) (sqlcdb.Booking, error) {
+	if m.CancelBookingFunc != nil {
+		return m.CancelBookingFunc(ctx, req)
+	}	
+	panic("CancelBookingFunc is not configured")
+}
 
+// Test cases for ConfirmBooking
 func TestBooking_Success(t *testing.T) {
 	// Create a mock booking service
 	userID := uuid.New().String()
@@ -249,6 +258,190 @@ func TestBooking_ServiceErrors(t *testing.T) {
 			req = req.WithContext(ctx)
 
 			handler.ConfirmBooking(recorder, req)
+
+			assert.Equal(t, tc.expectedStatus, recorder.Code)
+			assert.True(t, serviceCalled)
+		})
+	}
+}
+
+// Test cases for CancelBooking
+func TestCancelBooking_Success(t *testing.T) {
+	// Create a mock booking service
+	bookingID := uuid.New()
+	bookingCode := "test-booking-code"
+	userID := uuid.New().String()
+
+	serviceCalled := false
+	mockService := &MockBookingService{
+		CancelBookingFunc: func(ctx context.Context, req service.CancelBookingRequest) (sqlcdb.Booking, error) {
+			serviceCalled = true
+			assert.Equal(t, bookingID.String(), uuid.UUID(req.BookingID.Bytes).String())
+			assert.Equal(t, bookingCode, req.BookingCode)
+			assert.Equal(t, userID, uuid.UUID(req.UserID.Bytes).String())
+			return sqlcdb.Booking{
+				ID:          pgtype.UUID{Bytes: bookingID, Valid: true},
+				UserID:      pgtype.UUID{Bytes: uuid.MustParse(userID), Valid: true},
+				BookingCode: bookingCode,
+			}, nil
+		},
+	}
+
+	handler := NewBookingHandler(mockService)
+
+	recorder := httptest.NewRecorder()
+
+	requestBody := `{
+		"booking_id": "` + bookingID.String() + `",
+		"booking_code": "` + bookingCode + `"
+	}`
+	req := httptest.NewRequest("POST", "/api/v1/bookings/cancel", strings.NewReader(requestBody))
+	req.Header.Set("Content-Type", "application/json")
+	ctx := middleware.SetUserID(req.Context(), userID)
+	req = req.WithContext(ctx)
+
+	// Call the handler
+	handler.CancelBooking(recorder, req)
+
+	// Check the response
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.True(t, serviceCalled, "Expected CancelBooking to be called")	
+}
+
+func TestCancelBooking_RequestValidation(t *testing.T) {
+	bookingID := uuid.New()
+	bookingCode := "test-booking-code"
+	userID := uuid.New().String()
+	
+	testCases := []struct {
+		name           string
+		userID 	  string
+		requestBody    string
+		method 	   string
+		expectedStatus int
+	}{
+		{
+			name: "Invalid booking_id",
+			userID : userID,
+			requestBody: `{
+				"booking_id": "invalid-uuid",
+				"booking_code": "` + bookingCode + `"
+			}`,
+			method: http.MethodPost,
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name: "Invalid Method",
+			userID : userID,
+			requestBody: `{
+				"booking_id": "` + bookingID.String() + `",
+				"booking_code": "` + bookingCode + `"
+			}`,
+			method: http.MethodGet,
+			expectedStatus: http.StatusMethodNotAllowed,
+		},
+		{
+			name: "Invalid JSON",
+			userID : userID,
+			requestBody: `{
+				"booking_id": "` + bookingID.String() + `",
+				"booking_code": "` + bookingCode + `"
+			`, // Missing closing brace
+			method: http.MethodPost,
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name: "Missing userID in context",
+			userID : "",
+			requestBody: `{
+				"booking_id": "` + bookingID.String() + `",
+				"booking_code": "` + bookingCode + `"
+			}`,
+			method: http.MethodPost,
+			expectedStatus: http.StatusUnauthorized,
+		},
+		{
+			name: "Missing booking_code",
+			userID : userID,
+			requestBody: `{
+				"booking_id": "` + bookingID.String() + `"
+			}`,
+			method: http.MethodPost,
+			expectedStatus: http.StatusBadRequest,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			serviceCalled := false
+			mockService := &MockBookingService{
+				CancelBookingFunc: func(ctx context.Context, req service.CancelBookingRequest) (sqlcdb.Booking, error) {
+					serviceCalled = true
+					return sqlcdb.Booking{}, nil
+				},
+			}
+			handler := NewBookingHandler(mockService)
+
+			recorder := httptest.NewRecorder()
+			req := httptest.NewRequest(tc.method, "/api/v1/bookings/cancel", strings.NewReader(tc.requestBody))
+			req.Header.Set("Content-Type", "application/json")
+			if tc.userID != "" {
+				ctx := middleware.SetUserID(req.Context(), tc.userID)
+				req = req.WithContext(ctx)
+			}
+
+			handler.CancelBooking(recorder, req)
+			
+			assert.Equal(t, tc.expectedStatus, recorder.Code)
+			assert.False(t, serviceCalled, "Expected CancelBooking not to be called for invalid requests")
+		})
+	}
+}
+
+func TestCancelBooking_ServiceErrors(t *testing.T) {
+	bookingID := uuid.New()
+	bookingCode := "test-booking-code"
+	userID := uuid.New().String()
+
+	testCases := []struct {
+		name           string
+		serviceError   error
+		expectedStatus int
+	}{
+		{
+			name:           "Booking not found",
+			serviceError:   domain.ErrBookingNotFound,
+			expectedStatus: http.StatusNotFound,
+		},
+		{
+			name:           "internal server error",
+			serviceError:   errors.New("database error"),
+			expectedStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			serviceCalled := false
+			mockService := &MockBookingService{
+				CancelBookingFunc: func(ctx context.Context, req service.CancelBookingRequest) (sqlcdb.Booking, error) {
+					serviceCalled = true
+					return sqlcdb.Booking{}, tc.serviceError
+				},
+			}
+			handler := NewBookingHandler(mockService)
+
+			recorder := httptest.NewRecorder()
+			requestBody := `{
+				"booking_id": "` + bookingID.String() + `",
+				"booking_code": "` + bookingCode + `"
+			}`
+			req := httptest.NewRequest("POST", "/api/v1/bookings/cancel", strings.NewReader(requestBody))
+			req.Header.Set("Content-Type", "application/json")
+			ctx := middleware.SetUserID(req.Context(), userID)
+			req = req.WithContext(ctx)
+
+			handler.CancelBooking(recorder, req)
 
 			assert.Equal(t, tc.expectedStatus, recorder.Code)
 			assert.True(t, serviceCalled)

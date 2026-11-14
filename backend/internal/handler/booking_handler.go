@@ -16,6 +16,7 @@ import (
 
 type BookingService interface {
 	ConfirmBooking(ctx context.Context, req service.ConfirmBookingRequest) (sqlcdb.Booking, error)
+	CancelBooking(ctx context.Context, req service.CancelBookingRequest) (sqlcdb.Booking, error)
 }
 
 type BookingHandler struct {
@@ -32,6 +33,11 @@ type confirmBookingHTTPRequest struct {
 	SeatID    string `json:"seat_id"`
 	HoldToken string `json:"hold_token"`
 	FlightID  string `json:"flight_id"`
+}
+
+type cancelBookingHTTPRequest struct {
+	BookingID   string `json:"booking_id"`
+	BookingCode string `json:"booking_code"`
 }
 
 func (h *BookingHandler) ConfirmBooking(w http.ResponseWriter, r *http.Request) {
@@ -106,3 +112,62 @@ func (h *BookingHandler) ConfirmBooking(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(booking)
 }
+
+func (h *BookingHandler) CancelBooking(w http.ResponseWriter, r *http.Request) {
+	var req cancelBookingHTTPRequest	
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	bookingID, err := uuid.Parse(req.BookingID)
+	if err != nil {
+		http.Error(w, "Invalid booking_id", http.StatusBadRequest)
+		return
+	}
+
+	// Validate booking code
+	if req.BookingCode == "" {
+		http.Error(w, "Missing booking_code", http.StatusBadRequest)
+		return
+	}
+	
+
+	// Get userID from context
+	userIDStr, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		http.Error(w, "User ID not found in context", http.StatusUnauthorized)
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		http.Error(w, "Invalid user_id", http.StatusBadRequest)
+		return
+	}
+
+	cancelReq := service.CancelBookingRequest{
+		BookingID:   pgtype.UUID{Bytes: bookingID, Valid: true},
+		BookingCode: req.BookingCode,
+		UserID:      pgtype.UUID{Bytes: userID, Valid: true},
+	}
+
+
+	booking, err := h.bookingService.CancelBooking(r.Context(), cancelReq)
+	if errors.Is(err, domain.ErrBookingNotFound) {
+		http.Error(w, "Booking not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(booking)
+}	
