@@ -14,6 +14,7 @@ import (
 
 type MockBookingStore struct {
 	ConfirmBookingTxFunc func(ctx context.Context, arg domain.ConfirmBookingParams, flightID pgtype.UUID) (sqlcdb.Booking, error)
+	CancelBookingTxFunc  func(ctx context.Context, bookingID pgtype.UUID, bookingCode string, userID pgtype.UUID) (sqlcdb.Booking, error)
 }
 
 func (m *MockBookingStore) ConfirmBookingTx(ctx context.Context, arg domain.ConfirmBookingParams, flightID pgtype.UUID) (sqlcdb.Booking, error) {
@@ -22,7 +23,14 @@ func (m *MockBookingStore) ConfirmBookingTx(ctx context.Context, arg domain.Conf
 	}
 	return sqlcdb.Booking{}, nil
 }
+func (m *MockBookingStore) CancelBookingTx(ctx context.Context, bookingID pgtype.UUID, bookingCode string, userID pgtype.UUID) (sqlcdb.Booking, error) {
+	if m.CancelBookingTxFunc != nil {
+		return m.CancelBookingTxFunc(ctx, bookingID, bookingCode, userID)
+	}
+	return sqlcdb.Booking{}, nil
+}
 
+// Test cases for ConfirmBooking
 func TestConfirmBooking_Success(t *testing.T) {
 	seatID := pgtype.UUID{Bytes: uuid.New(), Valid: true}
 	userID := pgtype.UUID{Bytes: uuid.New(), Valid: true}
@@ -173,3 +181,88 @@ func TestConfirmBooking_HoldNotFound(t *testing.T) {
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, domain.ErrSeatHoldNotFound)
 }
+
+// Test cases for CancelBooking
+func TestBookingService_CancelBooking_Success(t *testing.T) {
+	mockStore := &MockBookingStore{
+		CancelBookingTxFunc: func(ctx context.Context, bookingID pgtype.UUID, bookingCode string, userID pgtype.UUID) (sqlcdb.Booking, error) {
+			return sqlcdb.Booking{
+				ID:          bookingID,
+				UserID:      userID,
+				BookingCode: bookingCode,
+				Status:      "CANCELLED",
+			}, nil
+		},
+	}
+
+	service := NewBookingService(mockStore)
+
+	bookingID := pgtype.UUID{Bytes: uuid.New(), Valid: true}
+	userID := pgtype.UUID{Bytes: uuid.New(), Valid: true}
+	bookingCode := "test-booking-code"
+
+	req := CancelBookingRequest{
+		BookingID:   bookingID,
+		BookingCode: bookingCode,
+		UserID:      userID,
+	}
+
+	booking, err := service.CancelBooking(context.Background(), req)
+	assert.NoError(t, err)
+	assert.Equal(t, bookingID, booking.ID)
+	assert.Equal(t, userID, booking.UserID)
+	assert.Equal(t, bookingCode, booking.BookingCode)
+	assert.Equal(t, "CANCELLED", booking.Status)
+}
+
+func TestBookingService_CancelBooking_Error(t *testing.T) {
+	mockStore := &MockBookingStore{
+		CancelBookingTxFunc: func(ctx context.Context, bookingID pgtype.UUID, bookingCode string, userID pgtype.UUID) (sqlcdb.Booking, error) {
+			return sqlcdb.Booking{}, errors.New("database error")
+		},
+	}
+
+	service := NewBookingService(mockStore)
+
+	bookingID := pgtype.UUID{Bytes: uuid.New(), Valid: true}
+	userID := pgtype.UUID{Bytes: uuid.New(), Valid: true}
+	bookingCode := "test-booking-code"
+
+	req := CancelBookingRequest{
+		BookingID:   bookingID,
+		BookingCode: bookingCode,
+		UserID:      userID,
+	}
+
+	booking, err := service.CancelBooking(context.Background(), req)
+
+	assert.Error(t, err)
+	assert.EqualError(t, err, "database error")
+	assert.Equal(t, sqlcdb.Booking{}, booking)
+	assert.Empty(t, booking.Status)
+}
+
+func TestBookingService_CancelBooking_BookingNotFound(t *testing.T) {
+	mockStore := &MockBookingStore{
+		CancelBookingTxFunc: func(ctx context.Context, bookingID pgtype.UUID, bookingCode string, userID pgtype.UUID) (sqlcdb.Booking, error) {
+			return sqlcdb.Booking{}, domain.ErrBookingNotFound
+		},
+	}
+
+	service := NewBookingService(mockStore)
+
+	bookingID := pgtype.UUID{Bytes: uuid.New(), Valid: true}
+	userID := pgtype.UUID{Bytes: uuid.New(), Valid: true}
+	bookingCode := "test-booking-code"
+
+	req := CancelBookingRequest{
+		BookingID:   bookingID,
+		BookingCode: bookingCode,
+		UserID:      userID,
+	}
+
+	booking, err := service.CancelBooking(context.Background(), req)
+	assert.Error(t, err)
+	assert.Equal(t, domain.ErrBookingNotFound, err)
+	assert.Empty(t, booking.Status)
+}	

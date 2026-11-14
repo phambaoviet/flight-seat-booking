@@ -85,6 +85,10 @@ func StartServer() {
 	holdService := service.NewHoldService(userStore)
 	holdHandler := handler.NewHoldHandler(holdService)
 
+	// Initialize BookingService and BookingHandler
+	bookingService := service.NewBookingService(userStore)
+	bookingHandler := handler.NewBookingHandler(bookingService)
+
 	// Load API token from environment
 	apiToken, err := loadAPITokenFromEnv()
 	if err != nil {
@@ -105,7 +109,7 @@ func StartServer() {
 	flightHandler := handler.NewFlightHandler(flightService)
 
 	// Create router
-	appRouter := router.NewRouter(flightHandler, holdHandler, authHandler, authMiddleware)
+	appRouter := router.NewRouter(flightHandler, holdHandler, authHandler, authMiddleware, bookingHandler)
 
 	// Start HTTP server
 	httpServer := &http.Server{

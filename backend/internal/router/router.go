@@ -9,7 +9,7 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 )
 
-func NewRouter(flightHandler *handler.FlightHandler, holdHandler *handler.HoldHandler, authHandler *handler.AuthHandler, authMiddleware *authmw.AuthMiddleware) http.Handler {
+func NewRouter(flightHandler *handler.FlightHandler, holdHandler *handler.HoldHandler, authHandler *handler.AuthHandler, authMiddleware *authmw.AuthMiddleware, bookingHandler *handler.BookingHandler) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(chimiddleware.Logger)
@@ -23,19 +23,19 @@ func NewRouter(flightHandler *handler.FlightHandler, holdHandler *handler.HoldHa
 			r.Post("/register", authHandler.Register)
 			r.Post("/login", authHandler.Login)
 		})
-		r.Route("/flights", func(r chi.Router) {
-			r.Post("/search", flightHandler.SearchFlights)
-		})
 		// Protected routes
 		r.Group(func(r chi.Router) {
 			r.Use(authMiddleware.Authenticate)
 			r.Route("/flights", func(r chi.Router) {
 				r.Post("/{flight_id}/hold", holdHandler.CreateHold)
 			})
+			r.Route("/bookings", func(r chi.Router) {
+				r.Post("/confirm", bookingHandler.ConfirmBooking)
+			})
+			r.Route("/holds", func(r chi.Router) {
+				r.Post("/release", holdHandler.ReleaseHold)
+			})
 		})
-	
 	})
-
 	return r
-
 }
