@@ -1,0 +1,177 @@
+.about-page {
+  background: #f5f8fc;
+}
+
+.about-hero {
+  padding: 110px 7% 120px;
+  text-align: center;
+  background: linear-gradient(135deg, #eff6ff, #ffffff);
+}
+
+.about-eyebrow {
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+}
+
+.about-hero h1 {
+  max-width: 850px;
+  margin: 22px auto;
+  color: #102a43;
+  font-size: clamp(38px, 5vw, 64px);
+  line-height: 1.15;
+}
+
+.about-hero h1 span {
+  color: #2563eb;
+}
+
+.about-hero > p {
+  max-width: 650px;
+  margin: 0 auto 30px;
+  color: #627d98;
+  font-size: 17px;
+  line-height: 1.8;
+}
+
+.about-cta {
+  display: inline-block;
+  padding: 14px 25px;
+  color: #ffffff;
+  background: #2563eb;
+  border-radius: 9px;
+  text-decoration: none;
+  font-weight: 600;
+  transition: background 0.2s ease;
+}
+
+.about-cta:hover {
+  background: #1d4ed8;
+}
+
+.about-mission {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 90px 7%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 70px;
+  align-items: center;
+}
+
+.mission-content h2 {
+  margin: 18px 0;
+  color: #102a43;
+  font-size: 38px;
+}
+
+.mission-content p {
+  color: #627d98;
+  font-size: 16px;
+  line-height: 1.8;
+}
+
+.mission-cards {
+  display: grid;
+  gap: 20px;
+}
+
+.mission-card {
+  padding: 25px;
+  background: #ffffff;
+  border: 1px solid #e5eaf0;
+  border-radius: 16px;
+}
+
+.mission-card > span {
+  font-size: 28px;
+}
+
+.mission-card h3 {
+  margin: 12px 0 8px;
+  color: #102a43;
+}
+
+.mission-card p {
+  color: #829ab1;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.about-values {
+  padding: 80px 7% 100px;
+  background: #ffffff;
+}
+
+.about-values .section-heading {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.values-grid {
+  max-width: 1440px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.value-card {
+  padding: 32px;
+  border: 1px solid #e5eaf0;
+  border-radius: 16px;
+}
+
+.value-icon {
+  width: 55px;
+  height: 55px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eff6ff;
+  border-radius: 14px;
+  font-size: 25px;
+}
+
+.value-card h3 {
+  margin: 20px 0 10px;
+  color: #102a43;
+}
+
+.value-card p {
+  color: #829ab1;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.about-cta-section {
+  padding: 75px 7%;
+  text-align: center;
+  background: #102a43;
+}
+
+.about-cta-section h2 {
+  color: #ffffff;
+  font-size: 32px;
+}
+
+.about-cta-section p {
+  margin: 15px 0 25px;
+  color: #bcccdc;
+}
+
+@media (max-width: 768px) {
+  .about-mission {
+    grid-template-columns: 1fr;
+    gap: 35px;
+  }
+
+  .values-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .about-hero {
+    padding: 75px 7%;
+  }
+}
