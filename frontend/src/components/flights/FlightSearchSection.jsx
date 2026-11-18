@@ -1,6 +1,5 @@
 import FlightSearchForm from './FlightSearchForm';
 import './FlightSearchSection.css';
-
 function FlightSearchSection() {
   const handleSearch = (formData) => {
     console.log('Flight search:', formData);

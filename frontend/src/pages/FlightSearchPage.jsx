@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import FlightSearchForm from '../components/FlightSearchForm';
+import FlightSearchForm from '../components/flights/FlightSearchForm';
 function FlightSearchPage() {
   const [flights, setFlights] = useState([]);
   const [loading, setLoading] = useState(false);

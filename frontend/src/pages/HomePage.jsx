@@ -1,7 +1,7 @@
-import Hero from '../components/Hero';
-import FlightSearchSection from '../components/FlightSearchSection';
+import Hero from '../components/home/Hero';
 import PopularDestinations from '../components/home/PopularDestinations';
 import WhyChooseUs from '../components/home/WhyChooseUs';
+import FlightSearchSection from '../components/flights/FlightSearchSection';
 
 function HomePage() {
   return (

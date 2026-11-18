@@ -1,10 +1,12 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Footer from '../components/Footer';
-import Navbar from '../components/Navbar';
-import HomePage from '../pages/HomePage';
-import AboutPage from '../pages/AboutPage';
-import LoginPage from '../pages/LoginPage';
-import RegisterPage from '../pages/RegisterPage';
+
+import Navbar from './components/common/Navbar';
+import Footer from './components/common/Footer';
+
+import HomePage from './pages/HomePage';
+import AboutPage from './pages/AboutPage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
 
 import './App.css';
 
