@@ -265,4 +265,4 @@ func TestBookingService_CancelBooking_BookingNotFound(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, domain.ErrBookingNotFound, err)
 	assert.Empty(t, booking.Status)
-}	
+}

@@ -24,7 +24,6 @@ type BookingStore interface {
 	) (sqlcdb.Booking, error)
 }
 
-
 type BookingService struct {
 	store BookingStore
 }
@@ -37,9 +36,9 @@ type ConfirmBookingRequest struct {
 }
 
 type CancelBookingRequest struct {
-    BookingID   pgtype.UUID
-    BookingCode string
-    UserID      pgtype.UUID
+	BookingID   pgtype.UUID
+	BookingCode string
+	UserID      pgtype.UUID
 }
 
 func NewBookingService(store BookingStore) *BookingService {
@@ -68,7 +67,7 @@ func (s *BookingService) ConfirmBooking(ctx context.Context, req ConfirmBookingR
 	return booking, nil
 }
 
-func (s *BookingService) CancelBooking(ctx context.Context, req CancelBookingRequest) (sqlcdb.Booking, error){
+func (s *BookingService) CancelBooking(ctx context.Context, req CancelBookingRequest) (sqlcdb.Booking, error) {
 	booking, err := s.store.CancelBookingTx(ctx, req.BookingID, req.BookingCode, req.UserID)
 	if err != nil {
 		return sqlcdb.Booking{}, err

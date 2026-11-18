@@ -17,22 +17,23 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
 )
+
 type MockBookingService struct {
 	ConfirmBookingFunc func(ctx context.Context, req service.ConfirmBookingRequest) (sqlcdb.Booking, error)
-	CancelBookingFunc func(ctx context.Context, req service.CancelBookingRequest) (sqlcdb.Booking, error)
+	CancelBookingFunc  func(ctx context.Context, req service.CancelBookingRequest) (sqlcdb.Booking, error)
 }
 
 func (m *MockBookingService) ConfirmBooking(ctx context.Context, req service.ConfirmBookingRequest) (sqlcdb.Booking, error) {
-    if m.ConfirmBookingFunc != nil {
-        return m.ConfirmBookingFunc(ctx, req)
-    }
+	if m.ConfirmBookingFunc != nil {
+		return m.ConfirmBookingFunc(ctx, req)
+	}
 
-    panic("ConfirmBookingFunc is not configured")
+	panic("ConfirmBookingFunc is not configured")
 }
 func (m *MockBookingService) CancelBooking(ctx context.Context, req service.CancelBookingRequest) (sqlcdb.Booking, error) {
 	if m.CancelBookingFunc != nil {
 		return m.CancelBookingFunc(ctx, req)
-	}	
+	}
 	panic("CancelBookingFunc is not configured")
 }
 
@@ -75,17 +76,15 @@ func TestBooking_Success(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	ctx := middleware.SetUserID(req.Context(), userID)
 	req = req.WithContext(ctx)
-	
 
 	// Call the handler
 	handler.ConfirmBooking(recorder, req)
 
 	// Check the response
 	assert.Equal(t, http.StatusCreated, recorder.Code)
-	assert.True(t, serviceCalled, "Expected ConfirmBooking to be called")	
-	
-}	
+	assert.True(t, serviceCalled, "Expected ConfirmBooking to be called")
 
+}
 
 // table-driven tests for different error scenarios
 func TestBooking_RequestValidation(t *testing.T) {
@@ -98,75 +97,75 @@ func TestBooking_RequestValidation(t *testing.T) {
 
 	testCases := []struct {
 		name           string
-		userID 	  string
+		userID         string
 		requestBody    string
-		method 	   string
+		method         string
 		expectedStatus int
 	}{
 		{
-			name: "Invalid seat_id",
-			userID : userID,
+			name:   "Invalid seat_id",
+			userID: userID,
 			requestBody: `{
 				"seat_id": "invalid-uuid",
 				"hold_token": "` + holdToken + `",
 				"flight_id": "` + flightID + `"
 			}`,
-			method: http.MethodPost,
+			method:         http.MethodPost,
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name: "Invalid hold_token",
-			userID : userID,
+			name:   "Invalid hold_token",
+			userID: userID,
 			requestBody: `{
 				"seat_id": "` + seatID + `",
 				"hold_token": "invalid-uuid",
 				"flight_id": "` + flightID + `"
 			}`,
-			method: http.MethodPost,
+			method:         http.MethodPost,
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name: "Invalid flight_id",
-			userID : userID,
+			name:   "Invalid flight_id",
+			userID: userID,
 			requestBody: `{
 				"seat_id": "` + seatID + `",
 				"hold_token": "` + holdToken + `",
 				"flight_id": "invalid-uuid"
 			}`,
-			method: http.MethodPost,
+			method:         http.MethodPost,
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name: "Invalid Method",
-			userID : userID,
+			name:   "Invalid Method",
+			userID: userID,
 			requestBody: `{
 				"seat_id": "` + seatID + `",
 				"hold_token": "` + holdToken + `",
 				"flight_id": "` + flightID + `"
 			}`,
-			method: http.MethodGet,
+			method:         http.MethodGet,
 			expectedStatus: http.StatusMethodNotAllowed,
 		},
 		{
-			name: "Invalid JSON",
-			userID : userID,
+			name:   "Invalid JSON",
+			userID: userID,
 			requestBody: `{
 				"seat_id": "` + seatID + `",
 				"hold_token": "` + holdToken + `",
 				"flight_id": "` + flightID + `"
 			`, // Missing closing brace
-			method: http.MethodPost,
-			expectedStatus: http.StatusBadRequest,	
+			method:         http.MethodPost,
+			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name: "Missing userID in context",
-			userID : "",
+			name:   "Missing userID in context",
+			userID: "",
 			requestBody: `{
 				"seat_id": "` + seatID + `",
 				"hold_token": "` + holdToken + `",
 				"flight_id": "` + flightID + `"
 			}`,
-			method: http.MethodPost,
+			method:         http.MethodPost,
 			expectedStatus: http.StatusUnauthorized,
 		},
 	}
@@ -225,12 +224,12 @@ func TestBooking_ServiceErrors(t *testing.T) {
 			expectedStatus: http.StatusConflict,
 		},
 		{
-			name: "Seat not found",
+			name:           "Seat not found",
 			serviceError:   domain.ErrSeatNotFound,
 			expectedStatus: http.StatusNotFound,
 		},
 		{
-			name: "internal server error",
+			name:           "internal server error",
 			serviceError:   domain.ErrBookingNotFound,
 			expectedStatus: http.StatusInternalServerError,
 		},
@@ -305,68 +304,68 @@ func TestCancelBooking_Success(t *testing.T) {
 
 	// Check the response
 	assert.Equal(t, http.StatusOK, recorder.Code)
-	assert.True(t, serviceCalled, "Expected CancelBooking to be called")	
+	assert.True(t, serviceCalled, "Expected CancelBooking to be called")
 }
 
 func TestCancelBooking_RequestValidation(t *testing.T) {
 	bookingID := uuid.New()
 	bookingCode := "test-booking-code"
 	userID := uuid.New().String()
-	
+
 	testCases := []struct {
 		name           string
-		userID 	  string
+		userID         string
 		requestBody    string
-		method 	   string
+		method         string
 		expectedStatus int
 	}{
 		{
-			name: "Invalid booking_id",
-			userID : userID,
+			name:   "Invalid booking_id",
+			userID: userID,
 			requestBody: `{
 				"booking_id": "invalid-uuid",
 				"booking_code": "` + bookingCode + `"
 			}`,
-			method: http.MethodPost,
+			method:         http.MethodPost,
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name: "Invalid Method",
-			userID : userID,
+			name:   "Invalid Method",
+			userID: userID,
 			requestBody: `{
 				"booking_id": "` + bookingID.String() + `",
 				"booking_code": "` + bookingCode + `"
 			}`,
-			method: http.MethodGet,
+			method:         http.MethodGet,
 			expectedStatus: http.StatusMethodNotAllowed,
 		},
 		{
-			name: "Invalid JSON",
-			userID : userID,
+			name:   "Invalid JSON",
+			userID: userID,
 			requestBody: `{
 				"booking_id": "` + bookingID.String() + `",
 				"booking_code": "` + bookingCode + `"
 			`, // Missing closing brace
-			method: http.MethodPost,
+			method:         http.MethodPost,
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name: "Missing userID in context",
-			userID : "",
+			name:   "Missing userID in context",
+			userID: "",
 			requestBody: `{
 				"booking_id": "` + bookingID.String() + `",
 				"booking_code": "` + bookingCode + `"
 			}`,
-			method: http.MethodPost,
+			method:         http.MethodPost,
 			expectedStatus: http.StatusUnauthorized,
 		},
 		{
-			name: "Missing booking_code",
-			userID : userID,
+			name:   "Missing booking_code",
+			userID: userID,
 			requestBody: `{
 				"booking_id": "` + bookingID.String() + `"
 			}`,
-			method: http.MethodPost,
+			method:         http.MethodPost,
 			expectedStatus: http.StatusBadRequest,
 		},
 	}
@@ -391,7 +390,7 @@ func TestCancelBooking_RequestValidation(t *testing.T) {
 			}
 
 			handler.CancelBooking(recorder, req)
-			
+
 			assert.Equal(t, tc.expectedStatus, recorder.Code)
 			assert.False(t, serviceCalled, "Expected CancelBooking not to be called for invalid requests")
 		})

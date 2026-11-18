@@ -25,10 +25,17 @@ function FlightSearchForm({ onSearch }) {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
+    // Cập nhật formData
     setFormData((prev) => ({
       ...prev,
       [name]: name === 'passengers' ? Number(value) : value,
     }));
+
+    setErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors[name];
+      return newErrors;
+    });
   };
 
   const handleSubmit = (e) => {
@@ -72,18 +79,41 @@ function FlightSearchForm({ onSearch }) {
     }
     if (
       formData.tripType === 'round-trip' &&
-      formData.returnDate < formData.departureDate && 
+      formData.returnDate < formData.departureDate &&
       formData.departureDate &&
       formData.returnDate
     ) {
       newErrors.returnDate =
         'Return date cannot be earlier than departure date.';
     }
+    const origin = formData.origin.trim().toUpperCase();
+    const destination = formData.destination.trim().toUpperCase();
+
+    if (origin && destination && origin === destination) {
+      newErrors.destination = 'Origin and destination cannot be the same.';
+    }
+    const today = new Date();
+    const localToday = [
+      today.getFullYear(),
+      String(today.getMonth() + 1).padStart(2, '0'),
+      String(today.getDate()).padStart(2, '0'),
+    ].join('-');
+
+    if (formData.departureDate && formData.departureDate < localToday) {
+      newErrors.departureDate = 'Departure date cannot be in the past.';
+    }
+    if (
+      formData.tripType === 'round-trip' &&
+      formData.returnDate &&
+      formData.returnDate < localToday
+    ) {
+      newErrors.returnDate = 'Return date cannot be in the past.';
+    }
     return newErrors;
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form className="flight-search-form" onSubmit={handleSubmit}>
       <div>
         <label>
           Trip Type:

@@ -101,7 +101,7 @@ func (h *BookingHandler) ConfirmBooking(w http.ResponseWriter, r *http.Request) 
 	} else if errors.Is(err, domain.ErrSeatHoldNotFound) {
 		http.Error(w, "Hold not found", http.StatusNotFound)
 		return
-	}  else if errors.Is(err, domain.ErrHoldTokenMismatch) {
+	} else if errors.Is(err, domain.ErrHoldTokenMismatch) {
 		http.Error(w, "Hold token mismatch", http.StatusConflict)
 		return
 	} else if err != nil {
@@ -114,7 +114,7 @@ func (h *BookingHandler) ConfirmBooking(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *BookingHandler) CancelBooking(w http.ResponseWriter, r *http.Request) {
-	var req cancelBookingHTTPRequest	
+	var req cancelBookingHTTPRequest
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -136,7 +136,6 @@ func (h *BookingHandler) CancelBooking(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Missing booking_code", http.StatusBadRequest)
 		return
 	}
-	
 
 	// Get userID from context
 	userIDStr, ok := middleware.GetUserID(r.Context())
@@ -157,7 +156,6 @@ func (h *BookingHandler) CancelBooking(w http.ResponseWriter, r *http.Request) {
 		UserID:      pgtype.UUID{Bytes: userID, Valid: true},
 	}
 
-
 	booking, err := h.bookingService.CancelBooking(r.Context(), cancelReq)
 	if errors.Is(err, domain.ErrBookingNotFound) {
 		http.Error(w, "Booking not found", http.StatusNotFound)
@@ -170,4 +168,4 @@ func (h *BookingHandler) CancelBooking(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(booking)
-}	
+}

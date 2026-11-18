@@ -16,7 +16,7 @@ func (s *Store) CreateHoldTx(ctx context.Context, arg sqlcdb.CreateSeatHoldParam
 		var err error
 		// Lock the seat to prevent concurrent holds
 		_, err = q.LockSeatForHold(ctx, sqlcdb.LockSeatForHoldParams{
-			ID:   arg.SeatID,
+			ID:       arg.SeatID,
 			FlightID: flightID,
 		})
 		if err != nil {
@@ -49,7 +49,7 @@ func (s *Store) CreateHoldTx(ctx context.Context, arg sqlcdb.CreateSeatHoldParam
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
-		
+
 		// Create the seat hold
 		result, err = q.CreateSeatHold(ctx, arg)
 		if err != nil {

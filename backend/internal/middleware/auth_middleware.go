@@ -18,7 +18,7 @@ func NewAuthMiddleware(tokenService service.TokenService) *AuthMiddleware {
 }
 
 func SetUserID(ctx context.Context, userID string) context.Context {
-    return context.WithValue(ctx, userIDKey, userID)
+	return context.WithValue(ctx, userIDKey, userID)
 }
 
 type contextKey string

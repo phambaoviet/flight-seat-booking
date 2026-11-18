@@ -71,7 +71,7 @@ func TestVerifyToken_Expired(t *testing.T) {
 	}
 }
 
-func TestVerifyToken_InvalidSignature(t *testing.T) {	
+func TestVerifyToken_InvalidSignature(t *testing.T) {
 	// Create a new token service with a test secret and expiration time
 	tokenTest := NewTokenService([]byte("test-secret"), 1*time.Hour)
 
@@ -80,7 +80,7 @@ func TestVerifyToken_InvalidSignature(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	
+
 	// Create a new token service with a different secret
 	tokenTestInvalid := NewTokenService([]byte("invalid-secret"), 1*time.Hour)
 
@@ -91,7 +91,7 @@ func TestVerifyToken_InvalidSignature(t *testing.T) {
 	}
 }
 
-func TestVerifyToken_InvalidFormat(t *testing.T){
+func TestVerifyToken_InvalidFormat(t *testing.T) {
 	// Create a new token service with a test secret and expiration time
 	tokenTest := NewTokenService([]byte("test-secret"), 1*time.Hour)
 

@@ -17,8 +17,8 @@ type HoldService struct {
 }
 
 type CreateHoldRequest struct {
-	UserID pgtype.UUID
-	SeatID pgtype.UUID
+	UserID   pgtype.UUID
+	SeatID   pgtype.UUID
 	FlightID pgtype.UUID
 }
 type ReleaseHoldRequest struct {

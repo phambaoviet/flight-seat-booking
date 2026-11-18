@@ -24,33 +24,33 @@ type DuffelSearchRequest struct {
 }
 
 type DuffelSearchData struct {
-	Slices     []DuffelSearchSlice     `json:"slices"`
-	Passengers []DuffelPassenger `json:"passengers"`
-	CabinClass string            `json:"cabin_class"`
+	Slices     []DuffelSearchSlice `json:"slices"`
+	Passengers []DuffelPassenger   `json:"passengers"`
+	CabinClass string              `json:"cabin_class"`
 }
 
 type DuffelOffer struct {
-	ID            string `json:"id"`
-	TotalAmount   string `json:"total_amount"`
-	TotalCurrency string `json:"total_currency"`
-	Slices        []DuffelOfferSlice   `json:"slices"`
+	ID            string             `json:"id"`
+	TotalAmount   string             `json:"total_amount"`
+	TotalCurrency string             `json:"total_currency"`
+	Slices        []DuffelOfferSlice `json:"slices"`
 }
 
 type DuffelSegment struct {
-	ID 		string        `json:"id"`
-	Duration   string `json:"duration"`
-	MarketingCarrier DuffelCarrier `json:"marketing_carrier"`
-	Aircraft	  DuffelAircraft `json:"aircraft"`
-	Origin      DuffelAirport `json:"origin"`
-	Destination DuffelAirport `json:"destination"`
-	Departure   string `json:"departing_at"`
-	Arrival     string `json:"arriving_at"`
+	ID               string         `json:"id"`
+	Duration         string         `json:"duration"`
+	MarketingCarrier DuffelCarrier  `json:"marketing_carrier"`
+	Aircraft         DuffelAircraft `json:"aircraft"`
+	Origin           DuffelAirport  `json:"origin"`
+	Destination      DuffelAirport  `json:"destination"`
+	Departure        string         `json:"departing_at"`
+	Arrival          string         `json:"arriving_at"`
 }
 
 type DuffelOfferSlice struct {
-    Origin      DuffelAirport   `json:"origin"`
-    Destination DuffelAirport  `json:"destination"`
-    Segments    []DuffelSegment `json:"segments"`
+	Origin      DuffelAirport   `json:"origin"`
+	Destination DuffelAirport   `json:"destination"`
+	Segments    []DuffelSegment `json:"segments"`
 }
 
 type DuffelAirport struct {

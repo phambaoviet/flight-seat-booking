@@ -10,17 +10,16 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-
 func (s *Store) ConfirmBookingTx(ctx context.Context, arg domain.ConfirmBookingParams, flightID pgtype.UUID) (sqlcdb.Booking, error) {
 	var result sqlcdb.Booking
-	
+
 	err := s.execTx(ctx, func(q *sqlcdb.Queries) error {
 		var err error
 		// Lock seat to prevent concurrent booking
 		_, err = q.LockSeatForHold(ctx, sqlcdb.LockSeatForHoldParams{
 			ID:       arg.SeatID,
 			FlightID: flightID,
-		}) 
+		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return domain.ErrSeatNotFound
@@ -36,7 +35,7 @@ func (s *Store) ConfirmBookingTx(ctx context.Context, arg domain.ConfirmBookingP
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
-		
+
 		// Convert seat hold to booking
 		hold, err := q.ConvertSeatHold(ctx, sqlcdb.ConvertSeatHoldParams{
 			SeatID:    arg.SeatID,
@@ -49,18 +48,18 @@ func (s *Store) ConfirmBookingTx(ctx context.Context, arg domain.ConfirmBookingP
 			}
 			return err
 		}
-		
+
 		// Call convert
 		book, err := q.CreateBookingFromHold(ctx, sqlcdb.CreateBookingFromHoldParams{
 			ID:          arg.BookingID,
-			ID_2: 	   		hold.ID,
+			ID_2:        hold.ID,
 			UserID:      arg.UserID,
 			BookingCode: arg.BookingCode,
 		})
 		if err != nil {
 			return err
 		}
-		
+
 		result = book
 		return nil
 	})

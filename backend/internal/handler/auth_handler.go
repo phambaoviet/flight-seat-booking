@@ -12,29 +12,30 @@ import (
 )
 
 type RegisterRequest struct {
-	Name  	 		string `json:"name" binding:"required"`
-    Email    		string `json:"email" binding:"required,email"`
-	Password 		string `json:"password" binding:"required,min=6"`
-	PhoneNumber   	string `json:"phone_number" binding:"required"`
+	Name        string `json:"name" binding:"required"`
+	Email       string `json:"email" binding:"required,email"`
+	Password    string `json:"password" binding:"required,min=6"`
+	PhoneNumber string `json:"phone_number" binding:"required"`
 }
 
 type RegisterResponse struct {
-	ID       		string `json:"id"`
-	Name     		string `json:"name"`
-	Email    		string `json:"email"`
-	PhoneNumber 	string `json:"phone_number"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Email       string `json:"email"`
+	PhoneNumber string `json:"phone_number"`
 }
 type AuthHandler struct {
-    svc AuthService
+	svc AuthService
 }
 type AuthService interface {
-    RegisterUser(ctx context.Context, req service.RegisterUserParams) (sqlcdb.User, error)
-    LoginUser(ctx context.Context, email, password string) (string, error)
+	RegisterUser(ctx context.Context, req service.RegisterUserParams) (sqlcdb.User, error)
+	LoginUser(ctx context.Context, email, password string) (string, error)
 }
+
 func NewAuthHandler(svc AuthService) *AuthHandler {
-    return &AuthHandler{
-        svc: svc,
-    }
+	return &AuthHandler{
+		svc: svc,
+	}
 }
 
 type LoginRequest struct {
@@ -44,14 +45,13 @@ type LoginRequest struct {
 
 type LoginResponse struct {
 	AccessToken string `json:"access_token"`
-	TokenType  string `json:"token_type"`
-	ExpiresIn int64 `json:"expires_in"`
+	TokenType   string `json:"token_type"`
+	ExpiresIn   int64  `json:"expires_in"`
 }
-
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
-	// check http.Post 
+	// check http.Post
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -60,7 +60,6 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-
 
 	// Normalizer email, name
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
@@ -94,7 +93,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		Email:       user.Email,
 		PhoneNumber: user.PhoneNumber,
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(resp)
@@ -139,4 +138,3 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(resp)
 }
-

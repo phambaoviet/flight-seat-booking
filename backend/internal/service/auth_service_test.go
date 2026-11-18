@@ -12,17 +12,19 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
 )
-var _ UserStore = (*MockUserStore)(nil)
-type MockUserStore struct {
-    users map[string]sqlcdb.User
 
-    GetUserByEmailFunc func(ctx context.Context, email string) (sqlcdb.User, error)
-    CreateUserFunc     func(ctx context.Context, user sqlcdb.CreateUserParams) (sqlcdb.User, error)
+var _ UserStore = (*MockUserStore)(nil)
+
+type MockUserStore struct {
+	users map[string]sqlcdb.User
+
+	GetUserByEmailFunc func(ctx context.Context, email string) (sqlcdb.User, error)
+	CreateUserFunc     func(ctx context.Context, user sqlcdb.CreateUserParams) (sqlcdb.User, error)
 }
 
 type MockTokenService struct {
 	GenerateFunc func(userID string) (string, error)
-	VerifyFunc   	  func(token string) (*Claims, error)
+	VerifyFunc   func(token string) (*Claims, error)
 }
 
 func (m *MockTokenService) Generate(userID string) (string, error) {
@@ -39,18 +41,17 @@ func (m *MockTokenService) Verify(token string) (*Claims, error) {
 	return nil, nil
 }
 
-
-func (m *MockUserStore) CreateUser(ctx context.Context, user sqlcdb.CreateUserParams,) (sqlcdb.User, error) {
-    if m.CreateUserFunc != nil {
-        return m.CreateUserFunc(ctx, user)
-    }
-    return sqlcdb.User{}, errors.New("CreateUserFunc not configured")
+func (m *MockUserStore) CreateUser(ctx context.Context, user sqlcdb.CreateUserParams) (sqlcdb.User, error) {
+	if m.CreateUserFunc != nil {
+		return m.CreateUserFunc(ctx, user)
+	}
+	return sqlcdb.User{}, errors.New("CreateUserFunc not configured")
 }
 func (m *MockUserStore) GetUserByEmail(ctx context.Context, email string) (sqlcdb.User, error) {
 	if m.GetUserByEmailFunc != nil {
 		return m.GetUserByEmailFunc(ctx, email)
 	}
-	
+
 	return sqlcdb.User{}, errors.New("GetUserByEmailFunc not configured")
 }
 func TestRegisterUser_Success(t *testing.T) {
@@ -73,7 +74,7 @@ func TestRegisterUser_Success(t *testing.T) {
 
 	mockTokenService := &MockTokenService{}
 
-	svc := NewAuthService(mockStore, mockTokenService)	
+	svc := NewAuthService(mockStore, mockTokenService)
 	req := RegisterUserParams{
 		Name:        "John Doe",
 		Email:       "John@Example.com",
@@ -92,8 +93,8 @@ func TestRegisterUser_Success(t *testing.T) {
 
 	if captured.Name != req.Name || captured.Email != req.Email || captured.PhoneNumber != req.PhoneNumber {
 		t.Errorf("captured fields do not match request")
-	}	
-	
+	}
+
 	// Check that the password hash is not the same as the plain password
 	if captured.PasswordHash == req.Password {
 		t.Errorf("password hash should not match the plain password")
@@ -121,7 +122,7 @@ func TestRegisterUser_EmailAlreadyExists(t *testing.T) {
 
 	mockTokenService := &MockTokenService{}
 
-	svc := NewAuthService(mockStore, mockTokenService)	
+	svc := NewAuthService(mockStore, mockTokenService)
 	req := RegisterUserParams{
 		Name:        "John Doe",
 		Email:       "John@Example.com",
@@ -149,7 +150,7 @@ func TestRegisterUser_DatabaseError(t *testing.T) {
 
 	mockTokenService := &MockTokenService{}
 
-	svc := NewAuthService(mockStore, mockTokenService)	
+	svc := NewAuthService(mockStore, mockTokenService)
 	req := RegisterUserParams{
 		Name:        "John Doe",
 		Email:       "John@Example.com",
@@ -175,7 +176,7 @@ func TestRegisterUser_CreateUserError(t *testing.T) {
 
 	mockTokenService := &MockTokenService{}
 
-	svc := NewAuthService(mockStore, mockTokenService)	
+	svc := NewAuthService(mockStore, mockTokenService)
 	req := RegisterUserParams{
 		Name:        "John Doe",
 		Email:       "John@Example.com",
@@ -191,7 +192,7 @@ func TestRegisterUser_CreateUserError(t *testing.T) {
 
 func TestLoginUser_Success(t *testing.T) {
 	const password = "password123"
-	
+
 	store := &MockUserStore{
 		GetUserByEmailFunc: func(ctx context.Context, email string) (sqlcdb.User, error) {
 			hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -207,7 +208,7 @@ func TestLoginUser_Success(t *testing.T) {
 			}, nil
 		},
 	}
-	
+
 	var capturedUserID string
 	tokenService := &MockTokenService{
 		GenerateFunc: func(userID string) (string, error) {
@@ -233,7 +234,7 @@ func TestLoginUser_Success(t *testing.T) {
 }
 func TestLoginUser_InvalidPassword(t *testing.T) {
 	const password = "password123"
-	
+
 	store := &MockUserStore{
 		GetUserByEmailFunc: func(ctx context.Context, email string) (sqlcdb.User, error) {
 			hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -249,7 +250,7 @@ func TestLoginUser_InvalidPassword(t *testing.T) {
 			}, nil
 		},
 	}
-	
+
 	tokenService := &MockTokenService{}
 
 	svc := NewAuthService(store, tokenService)
@@ -266,7 +267,7 @@ func TestLoginUser_UserNotFound(t *testing.T) {
 			return sqlcdb.User{}, pgx.ErrNoRows
 		},
 	}
-	
+
 	tokenService := &MockTokenService{}
 
 	svc := NewAuthService(store, tokenService)
@@ -282,7 +283,7 @@ func TestLoginUser_DatabaseError(t *testing.T) {
 			return sqlcdb.User{}, errors.New("database error")
 		},
 	}
-	
+
 	tokenService := &MockTokenService{}
 
 	svc := NewAuthService(store, tokenService)
@@ -295,7 +296,7 @@ func TestLoginUser_DatabaseError(t *testing.T) {
 
 func TestLoginUser_TokenGenerationError(t *testing.T) {
 	const password = "password123"
-	
+
 	store := &MockUserStore{
 		GetUserByEmailFunc: func(ctx context.Context, email string) (sqlcdb.User, error) {
 			hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -311,7 +312,7 @@ func TestLoginUser_TokenGenerationError(t *testing.T) {
 			}, nil
 		},
 	}
-	
+
 	tokenService := &MockTokenService{
 		GenerateFunc: func(userID string) (string, error) {
 			return "", errors.New("token generation error")

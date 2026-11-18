@@ -13,25 +13,25 @@ import (
 )
 
 type AuthService struct {
-    store UserStore
+	store        UserStore
 	tokenService TokenService
 }
 
 type RegisterUserParams struct {
-	Name        string 
+	Name        string
 	Email       string
 	Password    string
 	PhoneNumber string
 }
 
 func NewAuthService(store UserStore, tokenService TokenService) *AuthService {
-    return &AuthService{
-        store:        store,
-        tokenService: tokenService,
-    }
+	return &AuthService{
+		store:        store,
+		tokenService: tokenService,
+	}
 }
 
-func (s *AuthService) LoginUser(ctx context.Context, email, password string) (string, error){
+func (s *AuthService) LoginUser(ctx context.Context, email, password string) (string, error) {
 	user, err := s.store.GetUserByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

@@ -30,7 +30,6 @@ type HoldService interface {
 
 type HoldHandler struct {
 	HoldService HoldService
-	
 }
 
 func NewHoldHandler(svc HoldService) *HoldHandler {
@@ -44,8 +43,9 @@ type createHoldHTTPRequest struct {
 }
 
 type releaseHoldHTTPRequest struct {
-    HoldID string `json:"hold_id"`
+	HoldID string `json:"hold_id"`
 }
+
 func (h *HoldHandler) CreateHold(w http.ResponseWriter, r *http.Request) {
 	var req createHoldHTTPRequest
 
@@ -73,7 +73,7 @@ func (h *HoldHandler) CreateHold(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID , err := uuid.Parse(userIDStr)
+	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
 		http.Error(w, "Invalid token claims", http.StatusUnauthorized)
 		return
@@ -84,7 +84,7 @@ func (h *HoldHandler) CreateHold(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert Flight ID to pgtype.UUID
-	flightIDStr := chi.URLParam(r, "flight_id")	
+	flightIDStr := chi.URLParam(r, "flight_id")
 	flightID, err := uuid.Parse(flightIDStr)
 	if err != nil {
 		http.Error(w, "Invalid flight_id", http.StatusBadRequest)
@@ -97,8 +97,8 @@ func (h *HoldHandler) CreateHold(w http.ResponseWriter, r *http.Request) {
 
 	// Call the service to create a hold
 	createHoldReq := service.CreateHoldRequest{
-		UserID: pgUserID,
-		SeatID: pgSeatID,
+		UserID:   pgUserID,
+		SeatID:   pgSeatID,
 		FlightID: pgFlightID,
 	}
 	hold, err := h.HoldService.CreateHold(r.Context(), createHoldReq)
@@ -114,7 +114,7 @@ func (h *HoldHandler) CreateHold(w http.ResponseWriter, r *http.Request) {
 	} else if err != nil {
 		http.Error(w, "Failed to create hold", http.StatusInternalServerError)
 		return
-	}  else if !hold.ID.Valid || !hold.UserID.Valid || !hold.SeatID.Valid || !hold.HoldToken.Valid {
+	} else if !hold.ID.Valid || !hold.UserID.Valid || !hold.SeatID.Valid || !hold.HoldToken.Valid {
 		http.Error(w, "Invalid hold data", http.StatusInternalServerError)
 		return
 	} else if !hold.CreatedAt.Valid || !hold.ExpiresAt.Valid {
@@ -123,7 +123,7 @@ func (h *HoldHandler) CreateHold(w http.ResponseWriter, r *http.Request) {
 	} else if hold.ExpiresAt.Time.Before(hold.CreatedAt.Time) {
 		http.Error(w, "Hold expiration time is before creation time", http.StatusInternalServerError)
 		return
-	} 
+	}
 	// Return the created hold as JSON response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

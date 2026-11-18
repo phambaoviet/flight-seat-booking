@@ -29,26 +29,26 @@ type mockHoldService struct {
 		holdID pgtype.UUID,
 		userID pgtype.UUID,
 	) (sqlcdb.SeatHold, error)
-
 }
 
 func (m *mockHoldService) ReleaseHold(ctx context.Context, holdID pgtype.UUID, userID pgtype.UUID) (sqlcdb.SeatHold, error) {
-    return m.ReleaseHoldFunc(ctx, holdID, userID)
+	return m.ReleaseHoldFunc(ctx, holdID, userID)
 }
 
 func (m *mockHoldService) CreateHold(ctx context.Context, arg service.CreateHoldRequest) (sqlcdb.SeatHold, error) {
 	return m.CreateHoldFunc(ctx, arg)
 }
+
 type mockTokenService struct {
-    VerifyFunc func(token string) (*service.Claims, error)
+	VerifyFunc func(token string) (*service.Claims, error)
 }
 
 func (m *mockTokenService) Generate(userID string) (string, error) {
-    return "", nil
+	return "", nil
 }
 
 func (m *mockTokenService) Verify(token string) (*service.Claims, error) {
-    return m.VerifyFunc(token)
+	return m.VerifyFunc(token)
 }
 
 func TestCreateHold_InvalidSeatID(t *testing.T) {
@@ -93,7 +93,6 @@ func TestCreateHold_InvalidUserID(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer valid-test-token")
 
-
 	rr := httptest.NewRecorder()
 	serviceCalled := false
 
@@ -124,11 +123,10 @@ func TestCreateHold_InvalidUserID(t *testing.T) {
 		Post("/api/v1/flights/{flight_id}/hold", holdHandler.CreateHold)
 
 	router.ServeHTTP(rr, req)
-	
 
 	// Check the response status code
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
-    assert.False(t, serviceCalled)
+	assert.False(t, serviceCalled)
 }
 func TestCreateHold_InvalidJSON(t *testing.T) {
 	invalidJSON := `{"seat_id": "550e8400-e29b-41d4-a716-446655440000", "user_id": }`
@@ -166,14 +164,13 @@ func TestCreateHold_ServiceError(t *testing.T) {
 	validJSON := `{
 		"seat_id": "550e8400-e29b-41d4-a716-446655440000"
 	}`
-	
 
 	req := httptest.NewRequest(
 		http.MethodPost,
 		"/api/v1/flights/550e8400-e29b-41d4-a716-446655440001/hold",
 		strings.NewReader(validJSON),
 	)
-	req.Header.Set("Content-Type", "application/json") 
+	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer valid-test-token")
 
 	rr := httptest.NewRecorder()
@@ -181,44 +178,43 @@ func TestCreateHold_ServiceError(t *testing.T) {
 
 	// Create a mock service that returns an error
 	mockSvc := &mockHoldService{
-        CreateHoldFunc: func(
-            ctx context.Context,
-            gotArg service.CreateHoldRequest,
-        ) (sqlcdb.SeatHold, error) {
-            serviceCalled = true
+		CreateHoldFunc: func(
+			ctx context.Context,
+			gotArg service.CreateHoldRequest,
+		) (sqlcdb.SeatHold, error) {
+			serviceCalled = true
 
-            assert.Equal(t, "123e4567-e89b-12d3-a456-426614174000",
-                gotArg.UserID.String())
-            assert.Equal(t, "550e8400-e29b-41d4-a716-446655440001",
-                gotArg.FlightID.String())
+			assert.Equal(t, "123e4567-e89b-12d3-a456-426614174000",
+				gotArg.UserID.String())
+			assert.Equal(t, "550e8400-e29b-41d4-a716-446655440001",
+				gotArg.FlightID.String())
 
-            return sqlcdb.SeatHold{}, assert.AnError
-        },
-    }
+			return sqlcdb.SeatHold{}, assert.AnError
+		},
+	}
 	holdHandler := NewHoldHandler(mockSvc)
 
 	mockTokenService := &mockTokenService{
-        VerifyFunc: func(token string) (*service.Claims, error) {
-            assert.Equal(t, "valid-test-token", token)
+		VerifyFunc: func(token string) (*service.Claims, error) {
+			assert.Equal(t, "valid-test-token", token)
 
-            return &service.Claims{
-                UserID: "123e4567-e89b-12d3-a456-426614174000",
-            }, nil
-        },
-    }
+			return &service.Claims{
+				UserID: "123e4567-e89b-12d3-a456-426614174000",
+			}, nil
+		},
+	}
 	authMiddleware := middleware.NewAuthMiddleware(mockTokenService)
-	
+
 	router := chi.NewRouter()
 
 	router.With(authMiddleware.Authenticate).
-    Post("/api/v1/flights/{flight_id}/hold", holdHandler.CreateHold)
+		Post("/api/v1/flights/{flight_id}/hold", holdHandler.CreateHold)
 
 	router.ServeHTTP(rr, req)
-	
-	
-	// Check the response status code	
+
+	// Check the response status code
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
-    assert.True(t, serviceCalled)
+	assert.True(t, serviceCalled)
 }
 func TestCreateHold_Success(t *testing.T) {
 	validJSON := `{
@@ -230,16 +226,15 @@ func TestCreateHold_Success(t *testing.T) {
 		"/api/v1/flights/550e8400-e29b-41d4-a716-446655440001/hold",
 		strings.NewReader(validJSON),
 	)
-	req.Header.Set("Content-Type", "application/json")	
+	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer valid-test-token")
-
 
 	rr := httptest.NewRecorder()
 	serviceCalled := false
 	now := time.Now()
 	expectedHold := sqlcdb.SeatHold{
 		ID:        pgtype.UUID{Bytes: uuid.New(), Valid: true},
-		SeatID:    pgtype.UUID{ Bytes: uuid.MustParse("550e8400-e29b-41d4-a716-446655440000"), Valid: true},
+		SeatID:    pgtype.UUID{Bytes: uuid.MustParse("550e8400-e29b-41d4-a716-446655440000"), Valid: true},
 		UserID:    pgtype.UUID{Bytes: uuid.MustParse("123e4567-e89b-12d3-a456-426614174000"), Valid: true},
 		HoldToken: pgtype.UUID{Bytes: uuid.MustParse("123e4567-e89b-12d3-a456-426614174001"), Valid: true},
 		CreatedAt: pgtype.Timestamptz{Time: now, Valid: true},
@@ -260,7 +255,7 @@ func TestCreateHold_Success(t *testing.T) {
 	holdHandler := NewHoldHandler(mockSvc)
 	mockTokenService := &mockTokenService{
 		VerifyFunc: func(token string) (*service.Claims, error) {
-			return &service.Claims{	
+			return &service.Claims{
 				UserID: "123e4567-e89b-12d3-a456-426614174000"}, nil
 		},
 	}
@@ -323,7 +318,7 @@ func TestCreateHold_SeatAlreadyBooked(t *testing.T) {
 
 	holdHandler := NewHoldHandler(mockService)
 
-	req := httptest.NewRequest(http.MethodPost,"/api/v1/flights/550e8400-e29b-41d4-a716-446655440001/hold", strings.NewReader(`{
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/flights/550e8400-e29b-41d4-a716-446655440001/hold", strings.NewReader(`{
 		"seat_id": "550e8400-e29b-41d4-a716-446655440000"
 	}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -342,7 +337,6 @@ func TestCreateHold_SeatAlreadyBooked(t *testing.T) {
 	router.With(authMiddleware.Authenticate).
 		Post("/api/v1/flights/{flight_id}/hold", holdHandler.CreateHold)
 	router.ServeHTTP(rr, req)
-	
 
 	assert.Equal(t, http.StatusConflict, rr.Code)
 	assert.True(t, serviceCalled)
@@ -398,7 +392,6 @@ func TestCreateHold_InternalServerError(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer valid-test-token")
 
-
 	rr := httptest.NewRecorder()
 	mockTokenService := &mockTokenService{
 		VerifyFunc: func(token string) (*service.Claims, error) {
@@ -409,8 +402,8 @@ func TestCreateHold_InternalServerError(t *testing.T) {
 	}
 	authMiddleware := middleware.NewAuthMiddleware(mockTokenService)
 	router := chi.NewRouter()
-    router.With(authMiddleware.Authenticate).
-        Post("/api/v1/flights/{flight_id}/hold", holdHandler.CreateHold)
+	router.With(authMiddleware.Authenticate).
+		Post("/api/v1/flights/{flight_id}/hold", holdHandler.CreateHold)
 	router.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
@@ -454,12 +447,12 @@ func TestReleaseHold_Success(t *testing.T) {
 		Bytes: uuid.New(),
 		Valid: true,
 	}
-	
+
 	seatID := pgtype.UUID{
 		Bytes: uuid.New(),
 		Valid: true,
 	}
-	
+
 	holdID := pgtype.UUID{
 		Bytes: uuid.New(),
 		Valid: true,
@@ -470,14 +463,14 @@ func TestReleaseHold_Success(t *testing.T) {
 	mockService := &mockHoldService{
 		CreateHoldFunc: func(ctx context.Context, req service.CreateHoldRequest) (sqlcdb.SeatHold, error) {
 			serviceCalled = true
-			return sqlcdb.SeatHold{ ID:        holdID,
-					UserID:    userID,
-					SeatID:    seatID,
-					HoldToken: pgtype.UUID{Bytes: uuid.New(), Valid: true},
-					CreatedAt: pgtype.Timestamptz{Time: createdAt, Valid: true},
-					ExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true},
-					}, nil
-				
+			return sqlcdb.SeatHold{ID: holdID,
+				UserID:    userID,
+				SeatID:    seatID,
+				HoldToken: pgtype.UUID{Bytes: uuid.New(), Valid: true},
+				CreatedAt: pgtype.Timestamptz{Time: createdAt, Valid: true},
+				ExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true},
+			}, nil
+
 		},
 	}
 

@@ -29,8 +29,6 @@ type DuffelOfferRequestData struct {
 	Offers []DuffelOffer `json:"offers"`
 }
 
-
-
 type DuffelErrorResponse struct {
 	Errors []DuffelError `json:"errors"`
 }
@@ -78,10 +76,9 @@ func (c *Client) handleResponse(resp *http.Response) (*FlightOfferResponse, erro
 	defer resp.Body.Close()
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		body, err := io.ReadAll(resp.Body)
-        if err != nil {
-            return nil, err
-        }
-		
+		if err != nil {
+			return nil, err
+		}
 
 		var flightOfferResp FlightOfferResponse
 		err = json.Unmarshal(body, &flightOfferResp)

@@ -1,0 +1,158 @@
+/* ===== FLIGHT SEARCH SECTION ===== */
+
+.flight-search-section {
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 30px 7% 100px;
+}
+
+.search-heading {
+  margin-bottom: 28px;
+}
+
+.search-heading > span {
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+}
+
+.search-heading h2 {
+  margin-top: 10px;
+  color: #102a43;
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.search-heading p {
+  margin-top: 8px;
+  color: #829ab1;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* ===== SEARCH CARD ===== */
+
+.search-card {
+  padding: 32px;
+  background-color: #ffffff;
+  border: 1px solid #e5eaf0;
+  border-radius: 18px;
+  box-shadow: 0 12px 40px rgba(16, 42, 67, 0.07);
+}
+
+/* ===== FORM LAYOUT ===== */
+
+.flight-search-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 24px 20px;
+}
+
+.flight-search-form > div {
+  min-width: 0;
+}
+
+.flight-search-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  color: #334e68;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.flight-search-form input,
+.flight-search-form select {
+  width: 100%;
+  height: 48px;
+  padding: 0 14px;
+
+  color: #102a43;
+  background-color: #f8fafc;
+
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  outline: none;
+
+  font-family: inherit;
+  font-size: 14px;
+
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.flight-search-form input:focus,
+.flight-search-form select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.flight-search-form input::placeholder {
+  color: #9fb3c8;
+}
+
+/* ===== VALIDATION ===== */
+
+.flight-search-form .error-message {
+  margin-top: 6px;
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+/* ===== SEARCH BUTTON ===== */
+
+.flight-search-form button[type='submit'] {
+  align-self: end;
+  height: 48px;
+  padding: 0 20px;
+
+  color: #ffffff;
+  background-color: #2563eb;
+
+  border: none;
+  border-radius: 8px;
+
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.flight-search-form button[type='submit']:hover {
+  background-color: #1d4ed8;
+  transform: translateY(-2px);
+}
+
+/* ===== RESPONSIVE ===== */
+
+@media (max-width: 900px) {
+  .flight-search-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .flight-search-section {
+    padding: 20px 20px 60px;
+  }
+
+  .search-card {
+    padding: 22px 18px;
+  }
+
+  .flight-search-form {
+    grid-template-columns: 1fr;
+  }
+
+  .search-heading h2 {
+    font-size: 25px;
+  }
+
+  .flight-search-form button[type='submit'] {
+    width: 100%;
+  }
+}

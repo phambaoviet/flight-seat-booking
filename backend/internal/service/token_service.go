@@ -8,8 +8,8 @@ import (
 )
 
 type TokenService interface {
-    Generate(userID string) (string, error)
-    Verify(token string) (*Claims, error)
+	Generate(userID string) (string, error)
+	Verify(token string) (*Claims, error)
 }
 type Claims struct {
 	UserID string `json:"user_id"`
@@ -19,7 +19,7 @@ type Claims struct {
 type JWTTokenService struct {
 	secret    []byte
 	expiresIn time.Duration
-}	
+}
 
 func (s *JWTTokenService) Generate(userID string) (string, error) {
 	claims := &Claims{
@@ -35,30 +35,30 @@ func (s *JWTTokenService) Generate(userID string) (string, error) {
 }
 
 func (s *JWTTokenService) Verify(tokenString string) (*Claims, error) {
-    token, err := jwt.ParseWithClaims(
-        tokenString,
-        &Claims{},
-        func(token *jwt.Token) (interface{}, error) {
-            if token.Method != jwt.SigningMethodHS256 {
-                return nil, errors.New("unexpected signing method")
-            }
+	token, err := jwt.ParseWithClaims(
+		tokenString,
+		&Claims{},
+		func(token *jwt.Token) (interface{}, error) {
+			if token.Method != jwt.SigningMethodHS256 {
+				return nil, errors.New("unexpected signing method")
+			}
 
-            return []byte(s.secret), nil
-        },
-    )
+			return []byte(s.secret), nil
+		},
+	)
 
-    if err != nil {
-        return nil, err
-    }
+	if err != nil {
+		return nil, err
+	}
 
-    claims, ok := token.Claims.(*Claims)
-    if !ok || !token.Valid {
-        return nil, errors.New("invalid token")
-    }
+	claims, ok := token.Claims.(*Claims)
+	if !ok || !token.Valid {
+		return nil, errors.New("invalid token")
+	}
 
-    return claims, nil
+	return claims, nil
 }
-func NewTokenService(secret []byte, expiresIn time.Duration) *JWTTokenService{
+func NewTokenService(secret []byte, expiresIn time.Duration) *JWTTokenService {
 	return &JWTTokenService{
 		secret:    secret,
 		expiresIn: expiresIn,
