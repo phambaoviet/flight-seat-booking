@@ -1,9 +1,45 @@
+import { useEffect, useState } from 'react';
 import './FlightCard.css';
-function FlightCard({ flight }) {
-  const formatDuration = (duration) => {
-    const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
+import { convertToVND, formatVND } from '../../services/currencyService';
 
-    if (!match) return duration;
+function FlightCard({ flight }) {
+  const [priceVND, setPriceVND] = useState(null);
+  const [priceError, setPriceError] = useState(false);
+
+  // Convert original price to VND
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchPrice = async () => {
+      try {
+        const convertedPrice = await convertToVND(
+          flight.total_amount,
+          flight.total_currency
+        );
+
+        if (!cancelled) {
+          setPriceVND(convertedPrice);
+          setPriceError(false);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setPriceError(true);
+        }
+      }
+    };
+
+    fetchPrice();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [flight.total_amount, flight.total_currency]);
+
+  // Convert ISO 8601 duration to readable format
+  const formatDuration = (duration) => {
+    const match = duration?.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
+
+    if (!match) return duration || 'N/A';
 
     const hours = match[1] || 0;
     const minutes = match[2] || 0;
@@ -11,20 +47,25 @@ function FlightCard({ flight }) {
     return `${hours}h ${minutes}m`;
   };
 
+  const getAirlineName = (slice) => {
+    return slice?.segments?.[0]?.marketing_carrier?.name || 'Airline';
+  };
+
   return (
     <article className="flight-card">
       <div className="flight-card-header">
         <div>
-          <h3>
-            {flight.slices?.[0]?.segments?.[0]?.marketing_carrier?.name ||
-              'Airline'}
-          </h3>
+          <h3>{getAirlineName(flight.slices?.[0])}</h3>
           <span>Flight offer</span>
         </div>
 
         <div className="flight-price">
-          <strong>
-            {flight.total_amount} {flight.total_currency}
+          <strong className="flight-card-price">
+            {priceVND !== null
+              ? formatVND(priceVND)
+              : priceError
+              ? 'Unable to convert'
+              : 'Converting...'}
           </strong>
         </div>
       </div>
