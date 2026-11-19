@@ -55,31 +55,34 @@ type flightServiceImpl struct {
 }
 
 type FlightSlice struct {
-	Origin      ServiceAirport
-	Destination ServiceAirport
-	Segments    []FlightSegment
+	Origin      ServiceAirport  `json:"origin"`
+	Destination ServiceAirport  `json:"destination"`
+	Segments    []FlightSegment `json:"segments"`
 }
-type ServiceCarrier struct {
-	IATA string
-	Name string
-}
-type ServiceAircraft struct {
-	IATA string
-	Name string
-}
+
 type ServiceAirport struct {
-	IATA string
-	Name string
+	IATA string `json:"iata"`
+	Name string `json:"name"`
+}
+
+type ServiceCarrier struct {
+	IATA string `json:"iata"`
+	Name string `json:"name"`
+}
+
+type ServiceAircraft struct {
+	IATA string `json:"iata"`
+	Name string `json:"name"`
 }
 type FlightSegment struct {
-	ID               string
-	Duration         string
-	MarketingCarrier ServiceCarrier
-	Aircraft         ServiceAircraft
-	Origin           ServiceAirport
-	Destination      ServiceAirport
-	Departure        string
-	Arrival          string
+	ID               string          `json:"id"`
+	Duration         string          `json:"duration"`
+	MarketingCarrier ServiceCarrier  `json:"marketing_carrier"`
+	Aircraft         ServiceAircraft `json:"aircraft"`
+	Origin           ServiceAirport  `json:"origin"`
+	Destination      ServiceAirport  `json:"destination"`
+	Departure        string          `json:"departure"`
+	Arrival          string          `json:"arrival"`
 }
 
 func NewFlightService(duffelClient DuffelClient) *flightServiceImpl {

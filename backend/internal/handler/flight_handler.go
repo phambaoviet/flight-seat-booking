@@ -23,6 +23,7 @@ type SearchFlightsRequest struct {
 	Adults      int      `json:"adults"`
 	Children    int      `json:"children"`
 	Infants     int      `json:"infants"`
+	CabinClass string   `json:"cabin_class"`
 	TripType    TripType `json:"trip_type"`
 }
 
@@ -73,6 +74,7 @@ func (h *FlightHandler) SearchFlights(w http.ResponseWriter, r *http.Request) {
 		Adults:      req.Adults,
 		Children:    req.Children,
 		Infants:     req.Infants,
+		CabinClass:  req.CabinClass,
 		TripType:    service.TripType(req.TripType),
 	})
 

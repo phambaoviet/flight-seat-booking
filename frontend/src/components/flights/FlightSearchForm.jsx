@@ -6,7 +6,9 @@ const initialFormState = {
   destination: '',
   departureDate: '',
   returnDate: '',
-  passengers: 1,
+  adults: 1,
+  children: 0,
+  infants: 0,
   travelClass: 'economy',
 };
 
@@ -25,17 +27,17 @@ function FlightSearchForm({ onSearch }) {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    // Cập nhật formData
     setFormData((prev) => ({
       ...prev,
-      [name]: name === 'passengers' ? Number(value) : value,
+      [name]: ['adults', 'children', 'infants'].includes(name)
+        ? Number(value)
+        : value,
     }));
 
-    setErrors((prev) => {
-      const newErrors = { ...prev };
-      delete newErrors[name];
-      return newErrors;
-    });
+    setErrors((prev) => ({
+      ...prev,
+      [name]: '',
+    }));
   };
 
   const handleSubmit = (e) => {
@@ -74,8 +76,20 @@ function FlightSearchForm({ onSearch }) {
       newErrors.returnDate =
         'Please select a return date for round-trip flights.';
     }
-    if (!Number.isInteger(formData.passengers) || formData.passengers < 1) {
-      newErrors.passengers = 'Number of passengers must be at least 1.';
+    if (!Number.isInteger(formData.adults) || formData.adults < 1) {
+      newErrors.adults = 'At least 1 adult is required.';
+    }
+
+    if (!Number.isInteger(formData.children) || formData.children < 0) {
+      newErrors.children = 'Children must be a non-negative integer.';
+    }
+
+    if (!Number.isInteger(formData.infants) || formData.infants < 0) {
+      newErrors.infants = 'Infants must be a non-negative integer.';
+    }
+
+    if (formData.infants > formData.adults) {
+      newErrors.infants = 'Infants cannot exceed the number of adults.';
     }
     if (
       formData.tripType === 'round-trip' &&
@@ -188,21 +202,45 @@ function FlightSearchForm({ onSearch }) {
           )}
         </div>
       )}
-      <div>
-        <label>
-          Passengers:
+      <div className="passenger-fields">
+        <div>
+          <label>Adults (12+)</label>
           <input
             type="number"
-            name="passengers"
-            value={formData.passengers}
-            onChange={handleChange}
+            name="adults"
             min="1"
-            required
+            max="9"
+            value={formData.adults}
+            onChange={handleChange}
           />
-        </label>
-        {errors.passengers && (
-          <p className="error-message">{errors.passengers}</p>
-        )}
+          {errors.adults && <p className="error-message">{errors.adults}</p>}
+        </div>
+
+        <div>
+          <label>Children (2–11)</label>
+          <input
+            type="number"
+            name="children"
+            min="0"
+            max="8"
+            value={formData.children}
+            onChange={handleChange}
+          />
+          {errors.adults && <p className="error-message">{errors.children}</p>}
+        </div>
+
+        <div>
+          <label>Infants (under 2)</label>
+          <input
+            type="number"
+            name="infants"
+            min="0"
+            max="8"
+            value={formData.infants}
+            onChange={handleChange}
+          />
+          {errors.adults && <p className="error-message">{errors.infants}</p>}
+        </div>
       </div>
       <div>
         <label>

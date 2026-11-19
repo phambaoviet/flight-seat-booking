@@ -1,8 +1,16 @@
+import { useNavigate } from 'react-router-dom';
 import FlightSearchForm from './FlightSearchForm';
 import './FlightSearchSection.css';
+
 function FlightSearchSection() {
+  const navigate = useNavigate();
+
   const handleSearch = (formData) => {
-    console.log('Flight search:', formData);
+    navigate('/flights/search', {
+      state: {
+        searchParams: formData,
+      },
+    });
   };
 
   return (

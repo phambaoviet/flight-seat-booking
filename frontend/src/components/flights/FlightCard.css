@@ -1,0 +1,124 @@
+.flight-card {
+  padding: 24px;
+  background: #ffffff;
+  border: 1px solid #e5edf5;
+  border-radius: 18px;
+  box-shadow: 0 4px 16px rgba(16, 42, 67, 0.04);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.flight-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 28px rgba(16, 42, 67, 0.09);
+}
+
+.flight-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #edf2f7;
+}
+
+.flight-card-header h3 {
+  margin: 0 0 5px;
+  color: #102a43;
+  font-size: 19px;
+}
+
+.flight-card-header span {
+  color: #829ab1;
+  font-size: 13px;
+}
+
+.flight-price {
+  color: #2563eb;
+  font-size: 22px;
+  font-weight: 750;
+}
+
+.flight-slice {
+  padding: 20px 0;
+  border-bottom: 1px solid #edf2f7;
+}
+
+.flight-slice h4 {
+  margin: 0 0 18px;
+  color: #486581;
+  font-size: 14px;
+}
+
+.flight-route {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr 1fr;
+  align-items: center;
+  gap: 20px;
+}
+
+.flight-route > div:last-child {
+  text-align: right;
+}
+
+.flight-route strong {
+  color: #102a43;
+  font-size: 25px;
+}
+
+.flight-route p {
+  margin: 6px 0 0;
+  color: #829ab1;
+  font-size: 12px;
+}
+
+.flight-route-details {
+  text-align: center;
+}
+
+.flight-route-details div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: #486581;
+  font-size: 13px;
+}
+
+.flight-select-button {
+  display: block;
+  margin: 20px 0 0 auto;
+  padding: 12px 28px;
+  color: white;
+  background: #2563eb;
+  border: none;
+  border-radius: 10px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.flight-select-button:hover {
+  background: #1d4ed8;
+}
+
+@media (max-width: 640px) {
+  .flight-card {
+    padding: 16px;
+  }
+
+  .flight-route {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .flight-route-details {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    text-align: left;
+  }
+
+  .flight-results-page {
+    padding: 32px 16px;
+  }
+
+  .flight-results-heading h1 {
+    font-size: 28px;
+  }
+}

@@ -1,0 +1,64 @@
+.flight-results-page {
+  min-height: 80vh;
+  padding: 48px 6%;
+  background: #f5f8fc;
+  color: #243b53;
+}
+
+.flight-results-heading {
+  max-width: 1200px;
+  margin: 0 auto 32px;
+}
+
+.flight-results-heading > span {
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+}
+
+.flight-results-heading h1 {
+  margin: 8px 0;
+  color: #102a43;
+  font-size: 36px;
+  font-weight: 750;
+}
+
+.flight-results-heading p {
+  color: #627d98;
+  font-size: 16px;
+}
+
+.flight-results-content {
+  max-width: 1200px;
+  margin: auto;
+}
+
+.flight-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.flight-results-count {
+  margin-bottom: 18px;
+  color: #627d98;
+  font-size: 14px;
+}
+
+.flight-loading,
+.flight-empty {
+  padding: 48px 24px;
+  background: white;
+  border-radius: 16px;
+  text-align: center;
+}
+
+.error-message {
+  padding: 14px 18px;
+  margin: 16px 0;
+  color: #b42318;
+  background: #fef3f2;
+  border: 1px solid #fecdca;
+  border-radius: 10px;
+}
