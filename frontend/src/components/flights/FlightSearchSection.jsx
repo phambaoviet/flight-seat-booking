@@ -11,7 +11,7 @@ function FlightSearchSection() {
         searchParams: formData,
       },
     });
-  };
+  };  
 
   return (
     <section id="flight-search" className="flight-search-section">
